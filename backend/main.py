@@ -6,6 +6,7 @@ Mounts all routers, configures CORS, rate limiting, and Swagger docs.
 
 import logging
 import os
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,8 +15,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from backend.routers import predict, train, metrics, portfolio, data
+from backend.routers import admin, data, metrics, portfolio, predict, train
 from backend.db.postgres import init_db
+from backend.services.matching_engine import OrderMatchingEngine
 
 # ------------------------------------------------------------------
 # Logging
@@ -46,8 +48,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database init failed (running without DB): {e}")
 
+    # Launch background tick worker for Limit/SL orders
+    engine_task = asyncio.create_task(OrderMatchingEngine.run_loop())
+
     yield
     logger.info("Shutting down Stock Prediction API.")
+    engine_task.cancel()
+    try:
+        await engine_task
+    except asyncio.CancelledError:
+        pass
 
 
 # ------------------------------------------------------------------
@@ -93,6 +103,7 @@ app.include_router(train.router)
 app.include_router(metrics.router)
 app.include_router(portfolio.router)
 app.include_router(data.router)
+app.include_router(admin.router)
 
 
 # ------------------------------------------------------------------

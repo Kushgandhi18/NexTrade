@@ -7,7 +7,7 @@ Tables: stocks_data, predictions, model_metrics
 import os
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, Float, Integer, DateTime, Text, Index, create_engine
+    Boolean, Column, String, Float, Integer, DateTime, Text, Index, create_engine
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from sqlalchemy.pool import StaticPool
@@ -19,6 +19,100 @@ DATABASE_URL = os.environ.get(
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+DEFAULT_STOCK_PROFILES = [
+    {
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "sector": "Technology",
+        "industry": "Consumer Electronics",
+        "country": "United States",
+        "founded": "1976",
+        "ceo": "Tim Cook",
+        "price": 189.30,
+        "previous_close": 187.88,
+        "change": 1.42,
+        "change_pct": 0.76,
+    },
+    {
+        "symbol": "TSLA",
+        "name": "Tesla Inc.",
+        "sector": "Automotive",
+        "industry": "Auto Manufacturers",
+        "country": "United States",
+        "founded": "2003",
+        "ceo": "Elon Musk",
+        "price": 242.80,
+        "previous_close": 245.95,
+        "change": -3.15,
+        "change_pct": -1.28,
+    },
+    {
+        "symbol": "MSFT",
+        "name": "Microsoft Corp.",
+        "sector": "Technology",
+        "industry": "Software - Infrastructure",
+        "country": "United States",
+        "founded": "1975",
+        "ceo": "Satya Nadella",
+        "price": 418.50,
+        "previous_close": 413.30,
+        "change": 5.20,
+        "change_pct": 1.26,
+    },
+    {
+        "symbol": "GOOGL",
+        "name": "Alphabet Inc.",
+        "sector": "Communication Services",
+        "industry": "Internet Content & Information",
+        "country": "United States",
+        "founded": "1998",
+        "ceo": "Sundar Pichai",
+        "price": 174.20,
+        "previous_close": 173.40,
+        "change": 0.80,
+        "change_pct": 0.46,
+    },
+    {
+        "symbol": "AMZN",
+        "name": "Amazon.com",
+        "sector": "Consumer Cyclical",
+        "industry": "Internet Retail",
+        "country": "United States",
+        "founded": "1994",
+        "ceo": "Andy Jassy",
+        "price": 186.40,
+        "previous_close": 187.70,
+        "change": -1.30,
+        "change_pct": -0.69,
+    },
+    {
+        "symbol": "NVDA",
+        "name": "NVIDIA Corp.",
+        "sector": "Technology",
+        "industry": "Semiconductors",
+        "country": "United States",
+        "founded": "1993",
+        "ceo": "Jensen Huang",
+        "price": 877.39,
+        "previous_close": 858.97,
+        "change": 18.42,
+        "change_pct": 2.14,
+    },
+    {
+        "symbol": "META",
+        "name": "Meta Platforms",
+        "sector": "Communication Services",
+        "industry": "Internet Content & Information",
+        "country": "United States",
+        "founded": "2004",
+        "ceo": "Mark Zuckerberg",
+        "price": 492.10,
+        "previous_close": 484.30,
+        "change": 7.80,
+        "change_pct": 1.61,
+    },
+]
 
 
 # ------------------------------------------------------------------
@@ -81,6 +175,37 @@ class ModelMetrics(Base):
     notes = Column(Text, nullable=True)
 
 
+class StockProfile(Base):
+    """Admin-managed stock catalog with cached market metadata."""
+    __tablename__ = "stock_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), nullable=False, unique=True, index=True)
+    name = Column(String(150), nullable=False)
+    sector = Column(String(120), nullable=True)
+    industry = Column(String(150), nullable=True)
+    description = Column(Text, nullable=True)
+    ceo = Column(String(120), nullable=True)
+    founded = Column(String(30), nullable=True)
+    country = Column(String(80), nullable=True)
+    employees = Column(Integer, nullable=True)
+    market_cap = Column(Float, nullable=True)
+    pe_ratio = Column(Float, nullable=True)
+    eps = Column(Float, nullable=True)
+    avg_volume = Column(Float, nullable=True)
+    week_52_low = Column(Float, nullable=True)
+    week_52_high = Column(Float, nullable=True)
+    beta = Column(Float, nullable=True)
+    dividend_yield = Column(Float, nullable=True)
+    price = Column(Float, nullable=False, default=0.0)
+    previous_close = Column(Float, nullable=True)
+    change = Column(Float, nullable=False, default=0.0)
+    change_pct = Column(Float, nullable=False, default=0.0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Profile(Base):
     """User profile and balance."""
     __tablename__ = "profiles"
@@ -120,6 +245,19 @@ class Transaction(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, default=1)
 
+class PendingOrder(Base):
+    """Pending limit, stop-loss, or take-profit orders."""
+    __tablename__ = "pending_orders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), nullable=False, index=True)
+    type = Column(String(20), nullable=False) # LIMIT_BUY, STOP_LOSS
+    target_price = Column(Float, nullable=False)
+    quantity = Column(Integer, nullable=False)
+    status = Column(String(20), default="PENDING") # PENDING, FILLED, CANCELLED
+    user_id = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 
 # ------------------------------------------------------------------
 # Utilities
@@ -135,6 +273,12 @@ def init_db():
         if not db.query(Profile).first():
             demo_profile = Profile(name="Kush", balance=100000.0)
             db.add(demo_profile)
+            db.commit()
+
+        existing_symbols = {symbol for (symbol,) in db.query(StockProfile.symbol).all()}
+        missing_defaults = [item for item in DEFAULT_STOCK_PROFILES if item["symbol"] not in existing_symbols]
+        if missing_defaults:
+            db.add_all(StockProfile(**item) for item in missing_defaults)
             db.commit()
     except Exception:
         pass

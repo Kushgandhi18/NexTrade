@@ -58,6 +58,31 @@ class FeatureService:
         df["volatility_20"] = df["daily_return"].rolling(20).std()
         df["volatility_60"] = df["daily_return"].rolling(60).std()
 
+        # --- ATR (Average True Range) ---
+        high_low = df["High"] - df["Low"]
+        high_close = (df["High"] - df["Close"].shift()).abs()
+        low_close = (df["Low"] - df["Close"].shift()).abs()
+        tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+        df["atr"] = tr.rolling(14).mean()
+
+        # --- Momentum ---
+        for m in [5, 10, 20]:
+            df[f"momentum_{m}"] = df["Close"] - df["Close"].shift(m)
+
+        # --- Time-Cyclical Features ---
+        day_of_week = None
+        if "Date" in df.columns:
+            day_of_week = pd.to_datetime(df["Date"]).dt.dayofweek
+        elif "date" in df.columns:
+            day_of_week = pd.to_datetime(df["date"]).dt.dayofweek
+        elif hasattr(df.index, "dayofweek"):
+            day_of_week = df.index.dayofweek
+            
+        if day_of_week is not None:
+            df["day_of_week"] = day_of_week
+            df["sin_day"] = np.sin(2 * np.pi * df["day_of_week"] / 7)
+            df["cos_day"] = np.cos(2 * np.pi * df["day_of_week"] / 7)
+
         # --- Lag Features ---
         for lag in [1, 2, 3, 5, 10, 20]:
             df[f"close_lag_{lag}"] = df["Close"].shift(lag)

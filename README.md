@@ -26,6 +26,12 @@ Frontend (Dashboard) → FastAPI Gateway → [ Data Service | Model Service | Pr
 | **Airflow** | Daily retraining DAG (weekdays 2 AM) |
 | **Async Training** | Non-blocking via FastAPI BackgroundTasks |
 
+### Fault Tolerance & Reliability
+- **Event-Loop Mitigation**: The `OrderMatchingEngine` offloads inherently blocking I/O calls and third-party API polling across `yf.Ticker` structures to background threads utilizing `asyncio.to_thread`, preserving the FastAPI web-handler bandwidth globally.
+- **Race Condition Immunity**: Implemented strict row-level execution locks via SQLAlchemy's `with_for_update(skip_locked=True)`, protecting the database ledgers against concurrent worker race-conditions.
+- **Graceful Task Termination**: The backend startup sequence explicitly awaits and swallows `asyncio.CancelledError` on teardown logic, guaranteeing DB sessions disconnect gracefully with no broken pipes during ECS cluster scale-downs.
+- **Offline Client Hydration**: The Javascript frontend intercepts failed network responses transparently and switches to utilizing `localStorage` caching mechanics to orchestrate trades entirely offline if the AWS cluster is unreachable.
+
 ---
 
 ## Quick Start
