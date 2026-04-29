@@ -13,7 +13,7 @@ statsmodels==0.14.2
 pmdarima==2.0.4
 
 # ML - Deep Learning
-tensorflow==2.16.1
+tensorflow-cpu==2.16.1
 
 # MLOps
 mlflow==2.13.0
