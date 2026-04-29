@@ -7,11 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libpq-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source
+# Copy entire project so backend/ exists as a proper Python package at /app/backend/
 COPY . .
 
 # Model store directory

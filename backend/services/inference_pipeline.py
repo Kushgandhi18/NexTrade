@@ -100,8 +100,39 @@ class InferencePipeline:
         self.cache.set(cache_key, result, ttl=3600)
         return result
 
+    def _pull_model_from_s3(self, stock: str, model_name: str, dest_dir: str) -> bool:
+        """Attempt to pull model artifacts from S3."""
+        bucket_name = os.environ.get("S3_MODEL_BUCKET")
+        if not bucket_name:
+            return False
+            
+        try:
+            import boto3
+            s3 = boto3.client("s3")
+            prefix = f"models/{stock}/{model_name}/"
+            
+            response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+            if "Contents" not in response:
+                return False
+                
+            os.makedirs(dest_dir, exist_ok=True)
+            for obj in response["Contents"]:
+                key = obj["Key"]
+                if key.endswith('/'):
+                    continue
+                rel_path = key[len(prefix):]
+                local_file_path = os.path.join(dest_dir, rel_path)
+                os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                
+                logger.info(f"Downloading s3://{bucket_name}/{key} to {local_file_path}")
+                s3.download_file(bucket_name, key, local_file_path)
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to pull model {stock}/{model_name} from S3: {e}")
+            return False
+
     def _get_or_load_model(self, stock: str, model_name: str):
-        """Load model from disk, with in-process caching."""
+        """Load model from disk or S3, with in-process caching."""
         key = f"{stock}_{model_name}"
         if key in self._loaded_models:
             logger.info(f"Model '{key}' found in process cache")
@@ -109,11 +140,13 @@ class InferencePipeline:
 
         # Find latest version in model store
         model_dir = os.path.join(MODEL_STORE_DIR, stock, model_name)
-        if not os.path.exists(model_dir):
-            raise FileNotFoundError(
-                f"No trained model found for {stock}/{model_name}. "
-                "Please run POST /train first."
-            )
+        if not os.path.exists(model_dir) or not os.listdir(model_dir):
+            pulled = self._pull_model_from_s3(stock, model_name, model_dir)
+            if not pulled:
+                raise FileNotFoundError(
+                    f"No trained model found locally or in S3 for {stock}/{model_name}. "
+                    "Please run training pipeline and upload to S3."
+                )
 
         versions = sorted(os.listdir(model_dir), reverse=True)
         if not versions:

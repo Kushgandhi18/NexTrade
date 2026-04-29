@@ -50,12 +50,18 @@ async def lifespan(app: FastAPI):
 
     # Launch background tick worker for Limit/SL orders
     engine_task = asyncio.create_task(OrderMatchingEngine.run_loop())
+    market_sync_task = asyncio.create_task(data.run_market_sync_loop())
 
     yield
     logger.info("Shutting down Stock Prediction API.")
     engine_task.cancel()
+    market_sync_task.cancel()
     try:
         await engine_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await market_sync_task
     except asyncio.CancelledError:
         pass
 
@@ -81,19 +87,20 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — allow all local origins in dev
+# CORS — allow all local origins in dev, plus file:// (origin: null)
 ALLOWED_ORIGINS = os.environ.get(
     "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:5173,http://localhost:5500,http://127.0.0.1:5500,http://127.0.0.1:8080,http://localhost:8080",
+    "http://localhost:3000,http://localhost:5173,http://localhost:5500,http://127.0.0.1:5500,http://127.0.0.1:8080,http://localhost:8080,null",
 ).split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",  # catch any local port
-    allow_credentials=True,
+    allow_origins=["*"],  # allows file:// (null origin) in dev
+    allow_credentials=False,  # must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # ------------------------------------------------------------------
 # Routers

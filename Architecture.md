@@ -1,5 +1,5 @@
                 ┌──────────────────────────┐
-                │   Frontend (React)       │
+                │   Frontend (Vanilla JS)  │
                 │ Dashboard + Charts       │
                 └──────────┬───────────────┘
                            │ REST / WebSocket
@@ -163,7 +163,7 @@ Optimization:
 Use Redis cache
 Batch predictions
 
-🖥️ 8. Frontend (React Dashboard)
+🖥️ 8. Frontend (Vanilla JS Dashboard)
 Features:
 Stock selection
 Model selection
@@ -173,8 +173,8 @@ Metrics display
 Comparison:
 ARIMA vs LSTM vs GRU vs Transformer
 Libraries:
-Chart.js / Recharts
-Tailwind CSS
+Chart.js
+Vanilla CSS (No Tailwind)
 
 🗄️ 9. Storage Design
 Database (PostgreSQL)
@@ -209,7 +209,7 @@ Deploy backend
 
 📦 12. Tech Stack Summary
 Layer	Tech
-Frontend	React, Tailwind
+Frontend	Vanilla HTML/JS, CSS
 Backend	FastAPI
 ML	TensorFlow, PyTorch, sklearn
 Time Series	statsmodels

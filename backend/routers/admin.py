@@ -1,12 +1,236 @@
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+import yfinance as yf
+
+logger = logging.getLogger(__name__)
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
-from backend.db.postgres import StockProfile, get_db
+from backend.db.postgres import (
+    AdminSession,
+    AdminUser,
+    StockProfile,
+    _hash_admin_password,
+    get_db,
+)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+SESSION_TTL_HOURS = max(1, int(os.environ.get("ADMIN_SESSION_HOURS", "12")))
+
+KNOWN_FOUNDED = {
+    "AAPL": "1976", "MSFT": "1975", "GOOGL": "1998", "AMZN": "1994",
+    "META": "2004", "NVDA": "1993", "TSLA": "2003", "NFLX": "1997",
+    "AMD": "1969", "INTC": "1968", "CRM": "1999", "UBER": "2009",
+}
+
+
+def _safe_float(value: Any) -> float | None:
+    if value in (None, "", "N/A"):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+
+def _safe_int(value: Any) -> int | None:
+    if value in (None, "", "N/A"):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+
+def _fast_info_value(fast_info: Any, key: str) -> Any:
+    if fast_info is None:
+        return None
+    try:
+        return fast_info[key]
+    except Exception:
+        return getattr(fast_info, key, None)
+
+
+
+def _extract_ceo_name(info: dict[str, Any]) -> str | None:
+    officers = info.get("companyOfficers") or []
+    ceo_name = None
+    for officer in officers:
+        title = str(officer.get("title", "")).lower()
+        if "ceo" in title or "chief executive" in title:
+            ceo_name = officer.get("name")
+            break
+    if not ceo_name and officers:
+        ceo_name = officers[0].get("name")
+    if not ceo_name:
+        return None
+    for prefix in ["Mr. ", "Ms. ", "Mrs. ", "Dr. ", "Sir "]:
+        ceo_name = ceo_name.replace(prefix, "")
+    return ceo_name
+
+
+
+def _build_yahoo_payload(symbol: str, is_active: bool = True) -> dict[str, Any]:
+    try:
+        ticker = yf.Ticker(symbol)
+        info = getattr(ticker, "info", None) or {}
+        fast_info = getattr(ticker, "fast_info", None)
+
+        price = (
+            _safe_float(_fast_info_value(fast_info, "last_price"))
+            or _safe_float(info.get("currentPrice"))
+            or _safe_float(info.get("regularMarketPrice"))
+            or 0.0
+        )
+        previous_close = (
+            _safe_float(_fast_info_value(fast_info, "previous_close"))
+            or _safe_float(info.get("previousClose"))
+        )
+        volume = (
+            _safe_float(_fast_info_value(fast_info, "last_volume"))
+            or _safe_float(_fast_info_value(fast_info, "ten_day_average_volume"))
+            or _safe_float(info.get("volume"))
+        )
+        dividend_yield = _safe_float(info.get("dividendYield"))
+        if dividend_yield is not None and dividend_yield <= 1:
+            dividend_yield *= 100
+
+        name = info.get("shortName") or info.get("longName") or symbol
+        if name == symbol and price == 0:
+            raise ValueError("Could not fetch stock data from Yahoo Finance")
+
+        return {
+            "symbol": symbol,
+            "name": name,
+            "sector": info.get("sector"),
+            "industry": info.get("industry"),
+            "description": info.get("longBusinessSummary"),
+            "ceo": _extract_ceo_name(info),
+            "founded": KNOWN_FOUNDED.get(symbol) or str(info.get("ipoExpectedDate") or "") or None,
+            "country": info.get("country"),
+            "employees": _safe_int(info.get("fullTimeEmployees")),
+            "market_cap": _safe_float(info.get("marketCap")),
+            "pe_ratio": _safe_float(info.get("trailingPE")),
+            "eps": _safe_float(info.get("trailingEps")),
+            "avg_volume": volume,
+            "week_52_low": _safe_float(info.get("fiftyTwoWeekLow")),
+            "week_52_high": _safe_float(info.get("fiftyTwoWeekHigh")),
+            "beta": _safe_float(info.get("beta")),
+            "dividend_yield": dividend_yield,
+            "price": round(price, 2),
+            "previous_close": round(previous_close, 2) if previous_close is not None else None,
+            "is_active": is_active,
+        }
+    except Exception as exc:
+        if "Too Many Requests" in str(exc) or "Rate limit" in str(exc) or isinstance(exc, ValueError):
+            logger.warning(f"Yahoo Finance fetch failed for {symbol} ({exc}). Using fallback.")
+            return {
+                "symbol": symbol,
+                "name": symbol,
+                "price": 100.0,
+                "previous_close": 100.0,
+                "is_active": is_active,
+                "description": f"Rate limited. Data will sync in the background automatically.",
+            }
+        logger.error(f"Unexpected error fetching data for {symbol}: {exc}")
+        raise
+
+
+
+def _parse_bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return None
+    return token.strip()
+
+
+
+def _serialize_admin_user(admin_user: AdminUser) -> dict[str, Any]:
+    return {
+        "id": admin_user.id,
+        "username": admin_user.username,
+        "role": admin_user.role,
+    }
+
+
+
+def require_admin(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    token = _parse_bearer_token(authorization)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin authentication required")
+
+    session = db.query(AdminSession).filter(AdminSession.token == token).first()
+    if not session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin session is invalid")
+
+    if session.expires_at <= datetime.utcnow():
+        db.delete(session)
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin session expired")
+
+    admin_user = (
+        db.query(AdminUser)
+        .filter(AdminUser.id == session.admin_user_id, AdminUser.is_active.is_(True))
+        .first()
+    )
+    if not admin_user or admin_user.role.lower() != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access denied")
+
+    return {"user": admin_user, "session": session}
+
+
+
+def _normalize_search_results(results: list[dict[str, Any]], tracked_symbols: set[str]) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    for item in results:
+        symbol = str(item.get("symbol") or item.get("displaySymbol") or "").strip().upper()
+        name = item.get("shortname") or item.get("longname") or item.get("displayName") or symbol
+        quote_type = str(item.get("quoteType") or item.get("typeDisp") or "").upper()
+        exchange = item.get("exchange") or item.get("exchangeDisp") or item.get("fullExchangeName")
+        region = item.get("region") or item.get("market")
+
+        if not symbol or symbol in seen:
+            continue
+        if quote_type and quote_type not in {"EQUITY", "ETF", "MUTUALFUND", "INDEX", "CRYPTOCURRENCY"}:
+            continue
+
+        seen.add(symbol)
+        normalized.append(
+            {
+                "symbol": symbol,
+                "name": name,
+                "exchange": exchange,
+                "region": region,
+                "quote_type": quote_type or "UNKNOWN",
+                "already_tracked": symbol in tracked_symbols,
+            }
+        )
+
+    return normalized[:8]
+
+
+class AdminLoginPayload(BaseModel):
+    username: str = Field(..., min_length=1, max_length=80)
+    password: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("username")
+    @classmethod
+    def normalize_username(cls, value: str) -> str:
+        return value.strip()
 
 
 class StockPayload(BaseModel):
@@ -79,6 +303,17 @@ class StockUpdatePayload(BaseModel):
         return value
 
 
+class StockLookupPayload(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=10)
+    is_active: bool = True
+
+    @field_validator("symbol")
+    @classmethod
+    def normalize_symbol(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+
 def _serialize_admin_stock(stock: StockProfile) -> dict[str, Any]:
     return {
         "id": stock.id,
@@ -106,6 +341,7 @@ def _serialize_admin_stock(stock: StockProfile) -> dict[str, Any]:
         "is_active": bool(stock.is_active),
         "updated_at": stock.updated_at.isoformat() if stock.updated_at else None,
     }
+
 
 
 def _apply_payload(stock: StockProfile, payload: StockPayload | StockUpdatePayload) -> None:
@@ -136,22 +372,146 @@ def _apply_payload(stock: StockProfile, payload: StockPayload | StockUpdatePaylo
     stock.is_active = payload.is_active
 
 
+@router.post("/auth/login")
+def admin_login(payload: AdminLoginPayload, db: Session = Depends(get_db)):
+    admin_user = (
+        db.query(AdminUser)
+        .filter(AdminUser.username == payload.username, AdminUser.is_active.is_(True))
+        .first()
+    )
+    if not admin_user or admin_user.password_hash != _hash_admin_password(payload.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials")
+
+    db.query(AdminSession).filter(AdminSession.expires_at <= datetime.utcnow()).delete()
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=SESSION_TTL_HOURS)
+    session = AdminSession(token=token, admin_user_id=admin_user.id, expires_at=expires_at)
+    db.add(session)
+    db.commit()
+
+    return {
+        "status": "success",
+        "token": token,
+        "expires_at": expires_at.isoformat(),
+        "user": _serialize_admin_user(admin_user),
+    }
+
+
+@router.get("/auth/status")
+def admin_status(admin: dict[str, Any] = Depends(require_admin)):
+    return {
+        "authenticated": True,
+        "user": _serialize_admin_user(admin["user"]),
+        "expires_at": admin["session"].expires_at.isoformat(),
+    }
+
+
+@router.post("/auth/logout")
+def admin_logout(
+    admin: dict[str, Any] = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    db.delete(admin["session"])
+    db.commit()
+    return {"status": "success"}
+
+
+@router.get("/stocks/search")
+def search_admin_stocks(
+    q: str = Query(..., min_length=1, max_length=120),
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
+    query = q.strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="Search query is required")
+
+    tracked_symbols = {symbol for (symbol,) in db.query(StockProfile.symbol).all()}
+
+    # Try yf.Search first (yfinance >= 0.2.52), fall back to direct Yahoo HTTP API
+    raw_quotes: list[dict[str, Any]] = []
+    try:
+        import yfinance as yf
+        search_cls = getattr(yf, "Search", None)
+        if search_cls is not None:
+            search = search_cls(
+                query,
+                max_results=8,
+                news_count=0,
+                lists_count=0,
+                include_cb=False,
+                include_nav_links=False,
+                enable_fuzzy_query=True,
+                raise_errors=False,
+            )
+            raw_quotes = getattr(search, "quotes", None) or []
+    except Exception:
+        pass
+
+    if not raw_quotes:
+        # Fallback: direct Yahoo Finance search API
+        try:
+            import httpx
+            url = "https://query1.finance.yahoo.com/v1/finance/search"
+            headers = {"User-Agent": "Mozilla/5.0"}
+            params = {
+                "q": query,
+                "quotesCount": 8,
+                "newsCount": 0,
+                "enableFuzzyQuery": True,
+                "quotesQueryId": "tss_match_phrase_query",
+            }
+            resp = httpx.get(url, params=params, headers=headers, timeout=6.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                raw_quotes = data.get("quotes", []) or []
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Yahoo Finance search failed: {exc}") from exc
+
+    return _normalize_search_results(raw_quotes, tracked_symbols)
+
+
+
 @router.get("/stocks")
-def list_admin_stocks(db: Session = Depends(get_db)):
+def list_admin_stocks(
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
     stocks = db.query(StockProfile).order_by(StockProfile.symbol.asc()).all()
     return [_serialize_admin_stock(stock) for stock in stocks]
 
 
 @router.get("/stocks/{symbol}")
-def get_admin_stock(symbol: str, db: Session = Depends(get_db)):
+def get_admin_stock(
+    symbol: str,
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
     stock = db.query(StockProfile).filter(StockProfile.symbol == symbol.strip().upper()).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
     return _serialize_admin_stock(stock)
 
 
+@router.post("/stocks/fetch")
+def fetch_stock_from_yahoo(
+    payload: StockLookupPayload,
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
+    return _build_yahoo_payload(payload.symbol, payload.is_active)
+
+
 @router.post("/stocks")
-def create_stock(payload: StockPayload, db: Session = Depends(get_db)):
+def create_stock(
+    payload: StockPayload,
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
     existing = db.query(StockProfile).filter(StockProfile.symbol == payload.symbol).first()
     if existing:
         raise HTTPException(status_code=409, detail="Stock already exists")
@@ -165,12 +525,37 @@ def create_stock(payload: StockPayload, db: Session = Depends(get_db)):
 
 
 @router.put("/stocks/{symbol}")
-def update_stock(symbol: str, payload: StockUpdatePayload, db: Session = Depends(get_db)):
+def update_stock(
+    symbol: str,
+    payload: StockUpdatePayload,
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
     stock = db.query(StockProfile).filter(StockProfile.symbol == symbol.strip().upper()).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
 
     _apply_payload(stock, payload)
+    db.commit()
+    db.refresh(stock)
+    return _serialize_admin_stock(stock)
+
+
+@router.post("/stocks/{symbol}/refresh")
+def refresh_stock_from_yahoo(
+    symbol: str,
+    db: Session = Depends(get_db),
+    admin: dict[str, Any] = Depends(require_admin),
+):
+    del admin
+    normalized_symbol = symbol.strip().upper()
+    stock = db.query(StockProfile).filter(StockProfile.symbol == normalized_symbol).first()
+    if not stock:
+        raise HTTPException(status_code=404, detail="Stock not found")
+
+    yahoo_payload = StockPayload(**_build_yahoo_payload(normalized_symbol, bool(stock.is_active)))
+    _apply_payload(stock, yahoo_payload)
     db.commit()
     db.refresh(stock)
     return _serialize_admin_stock(stock)

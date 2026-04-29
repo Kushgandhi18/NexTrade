@@ -14,10 +14,6 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
   <style>
-    /* ================================================================
-   DESIGN SYSTEM — NexTrade AI
-   Zerodha depth + Groww simplicity + AI intelligence layer
-================================================================ */
     :root {
       /* Brand Colors */
       --deep-blue: #1E2A78;
@@ -2422,6 +2418,74 @@
       color: var(--text-3);
     }
 
+    .admin-auth-shell {
+      max-width: 460px;
+      margin: 0 auto;
+    }
+
+    .admin-auth-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 255, 0.98));
+      border: 1px solid rgba(30, 42, 120, 0.12);
+      border-radius: var(--r-lg);
+      box-shadow: var(--shadow-md);
+    }
+
+    .admin-lock-copy {
+      font-size: 0.86rem;
+      line-height: 1.6;
+      color: var(--text-3);
+      margin-bottom: 18px;
+    }
+
+    .admin-search-shell {
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: var(--r-md);
+      background: linear-gradient(180deg, rgba(30, 42, 120, 0.04), rgba(124, 92, 255, 0.04));
+      border: 1px solid rgba(30, 42, 120, 0.08);
+    }
+
+    .admin-search-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .admin-search-bar .form-input {
+      margin: 0;
+    }
+
+    .admin-search-results {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .admin-search-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: var(--r-md);
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(30, 42, 120, 0.08);
+    }
+
+    .admin-search-symbol {
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--deep-blue);
+    }
+
+    .admin-search-meta {
+      font-size: 0.76rem;
+      color: var(--text-3);
+      margin-top: 4px;
+    }
+
     .form-checkbox {
       display: inline-flex;
       align-items: center;
@@ -2439,12 +2503,18 @@
     }
 
     @media (max-width: 1200px) {
+
       .dashboard-grid,
       .portfolio-layout,
       .markets-layout,
       .ai-summary-grid,
       .admin-grid {
         grid-template-columns: 1fr 1fr;
+      }
+
+      .admin-search-bar {
+        flex-direction: column;
+        align-items: stretch;
       }
 
       .stock-detail-main {
@@ -2483,6 +2553,11 @@
       .admin-grid,
       .admin-form-grid {
         grid-template-columns: 1fr !important;
+      }
+
+      .admin-search-item {
+        flex-direction: column;
+        align-items: flex-start;
       }
 
       .stock-detail-header {
@@ -2692,7 +2767,7 @@
           <div class="card-p mood-card">
             <div class="section-title">Market Mood</div>
             <div class="mood-title" id="mood-name">Moderately Bullish</div>
-            <div class="mood-label-row"><span>😱 Fear</span><span>😱 Greed</span></div>
+            <div class="mood-label-row"><span>😱 Fear</span><span>🤑 Greed</span></div>
             <div class="mood-track">
               <div class="mood-thumb" id="mood-thumb" style="left: 0%"></div>
             </div>
@@ -2787,10 +2862,11 @@
             <div>
               <div id="profile-name" style="font-size:1.25rem;font-weight:800;color:var(--text-1);">Kush Gandhi</div>
               <div style="font-size:0.85rem;color:var(--text-3);">kush@nextrade.ai • Premium Plan</div>
-              <div id="profile-balance" style="font-size:0.8rem;color:var(--deep-blue);font-weight:700;margin-top:6px;">$100,000.00 buying power</div>
+              <div id="profile-balance" style="font-size:0.8rem;color:var(--deep-blue);font-weight:700;margin-top:6px;">
+                $100,000.00 buying power</div>
             </div>
           </div>
-          <button class="btn btn-demo" style="width:auto;margin:0;">Edit Profile</button>
+          <button class="btn btn-demo" style="width:auto;margin:0;" onclick="navigate('admin')">Manage Stocks</button>
         </div>
       </div>
 
@@ -2841,6 +2917,190 @@
         <div class="nav-icon">👤</div>
         <div class="nav-label">Me</div>
         <div class="nav-indicator"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+     ADMIN PAGE
+============================================================ -->
+  <div class="page" id="page-admin">
+    <div class="topbar">
+      <button class="back-btn" onclick="goBack()">← Back</button>
+      <div style="font-weight:800;color:var(--deep-blue);">Admin Console</div>
+      <div class="topbar-actions">
+        <span class="topbar-badge badge-offline" id="admin-auth-pill">Locked</span>
+        <button class="btn btn-demo" id="admin-logout-btn" style="width:auto;margin:0;display:none;" type="button" onclick="logoutAdmin()">Logout</button>
+      </div>
+    </div>
+
+    <div class="page-content" style="padding-top:24px;">
+      <div class="admin-auth-shell" id="admin-auth-view">
+        <div class="card admin-auth-card">
+          <div class="card-p">
+            <div class="section-title">Admin Sign In</div>
+            <div class="admin-lock-copy">
+              The stock catalog is protected now. Sign in as an admin to search Yahoo Finance, import symbols, and publish updates into the database-backed website.
+            </div>
+            <form onsubmit="submitAdminLogin(event)">
+              <div class="form-group mb-16">
+                <label class="form-label">Username</label>
+                <input class="form-input" id="admin-login-username" placeholder="admin" autocomplete="username" required />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-input" id="admin-login-password" type="password" placeholder="Enter admin password" autocomplete="current-password" required />
+              </div>
+              <div class="flex gap-12 mt-24">
+                <button class="btn btn-primary" id="admin-login-btn" type="submit">Unlock Admin</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-grid" id="admin-console" hidden>
+        <div class="card">
+          <div class="card-p">
+            <div class="section-title">Stock Form</div>
+            <div class="admin-form-meta" id="admin-form-mode">Create a new stock entry and it will be available across the site after save.</div>
+
+            <div class="admin-search-shell">
+              <div class="fw-700 text-sm">Search &amp; Import From Yahoo Finance</div>
+              <div class="admin-list-note">Type a company name like Apple or a ticker like AAPL, click Search, then click Import to auto-fill the form below and save to add the stock.</div>
+              <div class="admin-search-bar">
+                <input class="form-input" id="admin-search-query" placeholder="Apple or AAPL" onkeydown="if(event.key==='Enter'){event.preventDefault();searchAdminStocks();}" />
+                <button class="btn btn-demo" style="width:auto;margin:0;" type="button" onclick="searchAdminStocks()">Search Yahoo</button>
+              </div>
+              <div class="admin-search-results" id="admin-search-results"></div>
+            </div>
+
+            <form id="admin-stock-form" onsubmit="submitAdminStock(event)">
+              <div class="admin-form-grid" style="display: none;">
+                <div class="form-group">
+                  <label class="form-label">Symbol</label>
+                  <input class="form-input" id="admin-symbol" placeholder="AAPL" maxlength="10" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Company Name</label>
+                  <input class="form-input" id="admin-name" placeholder="Apple Inc. (auto-filled on import)" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Sector</label>
+                  <input class="form-input" id="admin-sector" placeholder="Technology" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Industry</label>
+                  <input class="form-input" id="admin-industry" placeholder="Consumer Electronics" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Price</label>
+                  <input class="form-input" id="admin-price" type="number" step="0.01" min="0" placeholder="189.30" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Previous Close</label>
+                  <input class="form-input" id="admin-prev-close" type="number" step="0.01" min="0" placeholder="187.88" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Market Cap</label>
+                  <input class="form-input" id="admin-market-cap" type="number" step="0.01" min="0" placeholder="2900000000000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Average Volume</label>
+                  <input class="form-input" id="admin-volume" type="number" step="1" min="0" placeholder="68000000" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">P/E Ratio</label>
+                  <input class="form-input" id="admin-pe" type="number" step="0.01" placeholder="29.40" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">EPS</label>
+                  <input class="form-input" id="admin-eps" type="number" step="0.01" placeholder="6.43" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">52W Low</label>
+                  <input class="form-input" id="admin-low" type="number" step="0.01" min="0" placeholder="164.08" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">52W High</label>
+                  <input class="form-input" id="admin-high" type="number" step="0.01" min="0" placeholder="199.62" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Beta</label>
+                  <input class="form-input" id="admin-beta" type="number" step="0.01" placeholder="1.12" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Dividend Yield (%)</label>
+                  <input class="form-input" id="admin-dividend" type="number" step="0.01" min="0" placeholder="0.54" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">CEO</label>
+                  <input class="form-input" id="admin-ceo" placeholder="Tim Cook" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Founded</label>
+                  <input class="form-input" id="admin-founded" placeholder="1976" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Country</label>
+                  <input class="form-input" id="admin-country" placeholder="United States" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Employees</label>
+                  <input class="form-input" id="admin-employees" type="number" step="1" min="0" placeholder="161000" />
+                </div>
+                <div class="form-group full">
+                  <label class="form-label">Description</label>
+                  <textarea class="form-input form-textarea" id="admin-description" placeholder="Company summary shown in the stock detail page"></textarea>
+                </div>
+              </div>
+
+              <label class="form-checkbox" style="display: none;">
+                <input type="checkbox" id="admin-active" checked />
+                <span>Show this stock across the website</span>
+              </label>
+
+              <div class="flex gap-12 mt-24" style="display: none;">
+                <button class="btn btn-demo" style="width:auto;margin:0;" type="button" id="admin-fetch-save-btn" onclick="fetchAndSaveFromYahoo()">⬇ Fetch &amp; Auto-Save</button>
+                <button class="btn btn-primary" id="admin-save-btn" type="submit">Save Stock</button>
+                <button class="btn btn-demo" style="width:auto;margin:0;" type="button" onclick="resetAdminForm()">Clear</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-p">
+            <div class="flex-between mb-16">
+              <div>
+                <div class="section-title" style="margin:0">Catalog</div>
+                <div class="admin-list-note" id="admin-stock-count">0 stocks in database</div>
+              </div>
+              <button class="btn btn-demo" style="width:auto;margin:0;" onclick="refreshAdminStocks()">Refresh</button>
+            </div>
+
+            <table class="nex-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Name</th>
+                  <th>Sector</th>
+                  <th>Price</th>
+                  <th>Change</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-stock-rows">
+                <tr>
+                  <td colspan="7">
+                    <div class="empty-state">Load the admin catalog to edit or add stocks.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -3000,6 +3260,12 @@
                     <td>Div Yield</td>
                     <td class="fw-700 text-1 text-right" id="fund-div">—</td>
                   </tr>
+                  <tr>
+                    <td>Prev Close</td>
+                    <td class="fw-700 text-1 text-right" id="fund-prev-close">—</td>
+                    <td>6M Return</td>
+                    <td class="fw-700 text-right" id="fund-6m-return">—</td>
+                  </tr>
                 </tbody>
               </table>
 
@@ -3007,6 +3273,27 @@
               <div class="section-title" style="font-size:0.75rem; margin-top:20px;">6-MONTH PRICE HISTORY</div>
               <div style="height:120px; position:relative;">
                 <canvas id="historyChart"></canvas>
+              </div>
+
+              <!-- Revenue & Profit Charts -->
+              <div id="financials-section" style="margin-top:28px;">
+                <div class="flex-between mb-16" style="align-items:center;">
+                  <div class="section-title" style="font-size:0.75rem;margin:0;">REVENUE &amp; PROFIT</div>
+                  <div class="chart-tabs" id="fin-period-tabs" style="margin:0;">
+                    <button class="chart-tab active" id="fin-tab-quarterly" onclick="setFinancialPeriod('quarterly', this)">Quarterly</button>
+                    <button class="chart-tab" id="fin-tab-annual" onclick="setFinancialPeriod('annual', this)">Annual</button>
+                  </div>
+                </div>
+                <div style="height:200px; position:relative; margin-bottom:16px;">
+                  <canvas id="revenueChart"></canvas>
+                </div>
+                <div style="height:180px; position:relative;">
+                  <canvas id="profitChart"></canvas>
+                </div>
+                <div style="display:flex; gap:24px; margin-top:8px; justify-content:center;">
+                  <div class="flex-center gap-8"><div style="width:10px;height:10px;background:#3B9EFF;border-radius:2px;"></div><span style="font-size:0.72rem;color:var(--text-3);">Revenue (B)</span></div>
+                  <div class="flex-center gap-8"><div style="width:10px;height:10px;background:#00D09C;border-radius:2px;"></div><span style="font-size:0.72rem;color:var(--text-3);">Net Income (B)</span></div>
+                </div>
               </div>
             </div>
           </div>
@@ -3170,14 +3457,16 @@
           <div class="card mb-24">
             <div class="card-p ai-summary-grid">
               <div class="confidence-gauge-wrap">
-                <svg class="gauge-svg" width="180" height="120" viewBox="0 0 200 140" aria-label="Prediction confidence">
+                <svg class="gauge-svg" width="180" height="120" viewBox="0 0 200 140"
+                  aria-label="Prediction confidence">
                   <path class="gauge-track" d="M20 110 A80 80 0 0 1 180 110"></path>
                   <path class="gauge-fill" id="gauge-fill" d="M20 110 A80 80 0 0 1 180 110"></path>
                   <text x="100" y="86" text-anchor="middle" class="gauge-value" id="gauge-text">0%</text>
                   <text x="100" y="106" text-anchor="middle" class="gauge-label">Confidence</text>
                 </svg>
                 <div class="signal-badge signal-hold" id="ai-signal-badge">HOLD</div>
-                <div class="summary-note" id="ai-signal-copy">We&apos;ll generate a signal after the forecast runs.</div>
+                <div class="summary-note" id="ai-signal-copy">We&apos;ll generate a signal after the forecast runs.
+                </div>
                 <div class="mt-16">
                   <span class="topbar-badge badge-offline" id="ai-backend-status">Offline-ready mode</span>
                 </div>
@@ -3437,6 +3726,7 @@
                   <th class="text-right">Price</th>
                   <th class="text-right">Change</th>
                   <th class="text-right">Market Cap</th>
+                  <th class="text-right">6M Return</th>
                   <th class="text-right">AI Score</th>
                   <th class="text-right">Action</th>
                 </tr>
@@ -3492,51 +3782,34 @@
 ================================================================ -->
   <script>
 
-    let STOCKS = [
-      { sym: 'AAPL', name: 'Apple Inc.', price: 189.30, chg: +1.42, chgPct: +0.76 },
-      { sym: 'TSLA', name: 'Tesla Inc.', price: 242.80, chg: -3.15, chgPct: -1.28 },
-      { sym: 'MSFT', name: 'Microsoft Corp.', price: 418.50, chg: +5.20, chgPct: +1.26 },
-      { sym: 'GOOGL', name: 'Alphabet Inc.', price: 174.20, chg: +0.80, chgPct: +0.46 },
-      { sym: 'AMZN', name: 'Amazon.com', price: 186.40, chg: -1.30, chgPct: -0.69 },
-      { sym: 'NVDA', name: 'NVIDIA Corp.', price: 877.39, chg: +18.42, chgPct: +2.14 },
-      { sym: 'META', name: 'Meta Platforms', price: 492.10, chg: +7.80, chgPct: +1.61 },
-    ];
-
-    let PORTFOLIO_DATA = { name: "Kush", balance: 100000.0, holdings: [] };
-
-    const API_BASE = "http://localhost:8000/portfolio";
-
-    const INDICES = [
-      { name: 'Nasdaq', value: '16,340.12', chg: '+1.24%', up: true },
-      { name: 'Dow 30', value: '39,112.16', chg: '+0.42%', up: true },
-      { name: 'S&P 500', value: '5,248.49', chg: '+0.87%', up: true },
-      { name: 'Sensex', value: '74,248.12', chg: '+0.65%', up: true },
-      { name: 'Nifty 50', value: '22,513.70', chg: '+0.52%', up: true },
-      { name: 'Gold', value: '2,342.10', chg: '+0.12%', up: true },
-      { name: 'Bitcoin', value: '68,432.22', chg: '+2.45%', up: true },
-    ];
-
-    const HEATMAP_DATA = [
-      { sym: 'TECH', chg: +2.14, color: [0, 208, 156] },
-      { sym: 'HLTH', chg: -0.42, color: [255, 77, 79] },
-      { sym: 'ENRG', chg: +1.05, color: [0, 208, 156] },
-      { sym: 'FIN', chg: +0.78, color: [0, 208, 156] },
-      { sym: 'CONS', chg: -1.20, color: [255, 77, 79] },
-      { sym: 'UTIL', chg: +0.31, color: [0, 208, 156] },
-      { sym: 'REAL', chg: -0.88, color: [255, 77, 79] },
-      { sym: 'MATL', chg: +0.55, color: [0, 208, 156] },
-      { sym: 'INDS', chg: +1.33, color: [0, 208, 156] },
-      { sym: 'COMMS', chg: -0.19, color: [255, 77, 79] },
-    ];
-
-    const MODEL_DATA = {
-      LSTM: { pct: 3.2, conf: 82, color: '#1E2A78', name: 'LSTM', desc: 'Long-Short Term Memory' },
-      GRU: { pct: 2.7, conf: 78, color: '#7C5CFF', name: 'GRU', desc: 'Gated Recurrent Unit' },
-      Transformer: { pct: 4.1, conf: 71, color: '#3B9EFF', name: 'Transformer', desc: 'Attention Mechanism' },
-      Ensemble: { pct: 3.45, conf: 86, color: '#00D09C', name: 'Ensemble', desc: 'Hybrid Prediction' },
+    let STOCKS = [];
+    let PORTFOLIO_DATA = { name: "Kush", balance: 0.0, holdings: [] };
+    let DASHBOARD_FEED = {
+      indices: [],
+      insights: [],
+      market_mood: { score: 50, name: 'Neutral', description: 'Waiting for backend market data.' },
+      sector_heatmap: []
+    };
+    let ADMIN_STOCKS = [];
+    let ADMIN_SEARCH_RESULTS = [];
+    let ADMIN_SESSION = {
+      token: sessionStorage.getItem('nextradeAdminToken') || '',
+      user: null,
+      expiresAt: sessionStorage.getItem('nextradeAdminExpiresAt') || null
     };
 
-    let currentStock = STOCKS[0];
+    let INDICES = [];
+    let HEATMAP_DATA = [];
+    const INITIAL_BALANCE = 100000.0;
+
+    const MODEL_DATA = {
+      LSTM: { color: '#1E2A78', name: 'LSTM', desc: 'Long-Short Term Memory' },
+      GRU: { color: '#7C5CFF', name: 'GRU', desc: 'Gated Recurrent Unit' },
+      Transformer: { color: '#3B9EFF', name: 'Transformer', desc: 'Attention Mechanism' },
+      Ensemble: { color: '#00D09C', name: 'Ensemble', desc: 'Hybrid Prediction' },
+    };
+
+    let currentStock = null;
     let currentPage = 'splash';
     let prevPage = 'dashboard';
     let tradeMode = 'buy';
@@ -3545,6 +3818,7 @@
     let aiChart = null;
     let pieChart = null;
     let currentDetailPeriod = '1D';
+    let adminEditSymbol = null;
 
     // ── Backend connectivity ───────────────────────────────────────────
     let BACKEND_ONLINE = false;
@@ -3559,194 +3833,547 @@
       return controller.signal;
     }
 
-    async function apiGet(path) {
+    async function jsonRequest(method, path, body = undefined, headers = {}, timeoutMs = 2500) {
       try {
-        const res = await fetch(`http://localhost:8000${path}`, { signal: createTimeoutSignal(2000) });
-        if (!res.ok) return null;
+        const finalHeaders = { ...headers };
+        const options = {
+          method,
+          headers: finalHeaders,
+          signal: createTimeoutSignal(timeoutMs)
+        };
+        if (body !== undefined) {
+          finalHeaders['Content-Type'] = 'application/json';
+          options.body = JSON.stringify(body);
+        }
+        const res = await fetch(`http://localhost:8000${path}`, options);
         BACKEND_ONLINE = true;
-        return await res.json();
-      } catch (e) { BACKEND_ONLINE = false; return null; }
-    }
-
-    async function apiPost(path, body) {
-      try {
-        const res = await fetch(`http://localhost:8000${path}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: createTimeoutSignal(3000)
-        });
-        if (!res.ok) return null;
-        BACKEND_ONLINE = true;
-        return await res.json();
-      } catch (e) { BACKEND_ONLINE = false; return null; }
-    }
-
-    // ── Local trade engine (works without backend) ─────────────────────
-    const INITIAL_BALANCE = 100000.0;
-    const LOCAL_STORAGE_KEYS = {
-      portfolio: 'NEXTRADE_PORTFOLIO',
-      txns: 'NEXTRADE_TXNS',
-      pending: 'NEXTRADE_PENDING'
-    };
-
-    let LOCAL_TXN_LOG = [];
-    let LOCAL_PENDING_ORDERS = [];
-
-    function saveLocalState() {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.portfolio, JSON.stringify(PORTFOLIO_DATA));
-      localStorage.setItem(LOCAL_STORAGE_KEYS.txns, JSON.stringify(LOCAL_TXN_LOG));
-      localStorage.setItem(LOCAL_STORAGE_KEYS.pending, JSON.stringify(LOCAL_PENDING_ORDERS));
-    }
-
-    function loadLocalState() {
-      try {
-        const portfolio = localStorage.getItem(LOCAL_STORAGE_KEYS.portfolio);
-        const txns = localStorage.getItem(LOCAL_STORAGE_KEYS.txns);
-        const pending = localStorage.getItem(LOCAL_STORAGE_KEYS.pending);
-
-        if (portfolio) PORTFOLIO_DATA = JSON.parse(portfolio);
-        if (txns) LOCAL_TXN_LOG = JSON.parse(txns);
-        if (pending) LOCAL_PENDING_ORDERS = JSON.parse(pending);
+        const payload = await res.json().catch(() => null);
+        return {
+          ok: res.ok,
+          status: res.status,
+          data: payload,
+          msg: payload?.detail || payload?.msg || null
+        };
       } catch (e) {
-        LOCAL_TXN_LOG = [];
-        LOCAL_PENDING_ORDERS = [];
+        BACKEND_ONLINE = false;
+        return { ok: false, status: 0, data: null, msg: null };
       }
     }
 
-    function getCommittedPendingBuyValue(excludeId = null) {
-      return LOCAL_PENDING_ORDERS
-        .filter(order => order.status === 'PENDING' && order.type === 'LIMIT_BUY' && order.id !== excludeId)
-        .reduce((sum, order) => sum + (order.quantity * order.target_price), 0);
+    async function apiGet(path, headers = {}) {
+      const result = await jsonRequest('GET', path, undefined, headers, 5000);
+      return result.ok ? result.data : null;
     }
 
-    function getCommittedPendingSellQty(symbol, excludeId = null) {
-      return LOCAL_PENDING_ORDERS
-        .filter(order => order.status === 'PENDING' && order.symbol === symbol && ['LIMIT_SELL', 'STOP_LOSS'].includes(order.type) && order.id !== excludeId)
-        .reduce((sum, order) => sum + order.quantity, 0);
+    async function apiPost(path, body, headers = {}) {
+      const result = await jsonRequest('POST', path, body, headers, 3500);
+      if (!result.ok) {
+        return { status: 'error', code: result.status, msg: result.msg || 'Request failed' };
+      }
+      return result.data;
     }
 
-    function localQueueOrder(symbol, type, qty, price) {
-      const total = qty * price;
-      if (type === 'LIMIT_BUY') {
-        const availableBalance = PORTFOLIO_DATA.balance - getCommittedPendingBuyValue();
-        if (availableBalance < total) return { ok: false, msg: 'Insufficient balance for pending buy order' };
-      } else {
-        const holding = PORTFOLIO_DATA.holdings.find(h => h.symbol === symbol);
-        const availableQty = holding ? holding.quantity - getCommittedPendingSellQty(symbol) : 0;
-        if (!holding || availableQty < qty) return { ok: false, msg: 'Insufficient shares for pending sell order' };
+    async function apiPut(path, body, headers = {}) {
+      const result = await jsonRequest('PUT', path, body, headers, 3500);
+      if (!result.ok) {
+        return { status: 'error', code: result.status, msg: result.msg || 'Request failed' };
+      }
+      return result.data;
+    }
+
+    function getAdminToken() {
+      return ADMIN_SESSION.token || sessionStorage.getItem('nextradeAdminToken') || '';
+    }
+
+    function getAdminHeaders() {
+      const token = getAdminToken();
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    function setAdminSession(token, user = null, expiresAt = null) {
+      ADMIN_SESSION = { token, user, expiresAt };
+      sessionStorage.setItem('nextradeAdminToken', token || '');
+      if (expiresAt) sessionStorage.setItem('nextradeAdminExpiresAt', expiresAt);
+      else sessionStorage.removeItem('nextradeAdminExpiresAt');
+    }
+
+    function clearAdminSession() {
+      ADMIN_SESSION = { token: '', user: null, expiresAt: null };
+      sessionStorage.removeItem('nextradeAdminToken');
+      sessionStorage.removeItem('nextradeAdminExpiresAt');
+    }
+
+    function setAdminAuthenticatedUI(isAuthenticated, user = null) {
+      const authView = document.getElementById('admin-auth-view');
+      const consoleView = document.getElementById('admin-console');
+      const pill = document.getElementById('admin-auth-pill');
+      const logoutBtn = document.getElementById('admin-logout-btn');
+
+      if (authView) authView.hidden = isAuthenticated;
+      if (consoleView) consoleView.hidden = !isAuthenticated;
+      if (logoutBtn) logoutBtn.style.display = isAuthenticated ? 'inline-flex' : 'none';
+      if (pill) {
+        pill.className = `topbar-badge ${isAuthenticated ? 'badge-live' : 'badge-offline'}`;
+        pill.textContent = isAuthenticated ? `${user?.username || 'Admin'} · unlocked` : 'Locked';
+      }
+    }
+
+    async function syncAdminSession(showError = false) {
+      const token = getAdminToken();
+      if (!token) {
+        clearAdminSession();
+        setAdminAuthenticatedUI(false);
+        return false;
       }
 
-      const pendingOrder = {
-        id: `local-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-        symbol,
-        type,
-        target_price: price,
-        quantity: qty,
-        status: 'PENDING',
-        created_at: new Date().toISOString()
+      const result = await jsonRequest('GET', '/admin/auth/status', undefined, getAdminHeaders(), 2500);
+      if (!result.ok || !result.data?.authenticated) {
+        clearAdminSession();
+        setAdminAuthenticatedUI(false);
+        if (showError && result.status) showToast('Admin session expired. Please sign in again.', 'warn');
+        return false;
+      }
+
+      setAdminSession(token, result.data.user, result.data.expires_at);
+      setAdminAuthenticatedUI(true, result.data.user);
+      return true;
+    }
+
+    async function adminApiGet(path) {
+      const result = await jsonRequest('GET', path, undefined, getAdminHeaders(), 3000);
+      if (!result.ok) {
+        if (result.status === 401 || result.status === 403) {
+          clearAdminSession();
+          setAdminAuthenticatedUI(false);
+        }
+        return { status: 'error', code: result.status, msg: result.msg || 'Admin request failed' };
+      }
+      return result.data;
+    }
+
+    async function adminApiPost(path, body) {
+      const result = await jsonRequest('POST', path, body, getAdminHeaders(), 4000);
+      if (!result.ok) {
+        if (result.status === 401 || result.status === 403) {
+          clearAdminSession();
+          setAdminAuthenticatedUI(false);
+        }
+        return { status: 'error', code: result.status, msg: result.msg || 'Admin request failed' };
+      }
+      return result.data;
+    }
+
+    async function adminApiPut(path, body) {
+      const result = await jsonRequest('PUT', path, body, getAdminHeaders(), 4000);
+      if (!result.ok) {
+        if (result.status === 401 || result.status === 403) {
+          clearAdminSession();
+          setAdminAuthenticatedUI(false);
+        }
+        return { status: 'error', code: result.status, msg: result.msg || 'Admin request failed' };
+      }
+      return result.data;
+    }
+
+    function getStockBySymbol(symbol) {
+      return STOCKS.find(stock => stock.sym === symbol || stock.symbol === symbol) || null;
+    }
+
+    async function loadStocksFromBackend(showError = false) {
+      const data = await apiGet('/data/stocks');
+      if (!Array.isArray(data)) {
+        if (showError) showToast('Could not load stock catalog from the backend.', 'error');
+        return false;
+      }
+
+      STOCKS = data.map(stock => ({
+        ...stock,
+        sym: stock.sym || stock.symbol
+      }));
+      currentStock = currentStock ? getStockBySymbol(currentStock.sym || currentStock.symbol) : STOCKS[0] || null;
+      return true;
+    }
+
+    async function loadDashboardFeed(showError = false) {
+      const feed = await apiGet('/data/dashboard');
+      if (!feed) {
+        if (showError) showToast('Could not load dashboard data from the backend.', 'error');
+        return false;
+      }
+
+      DASHBOARD_FEED = feed;
+      INDICES = feed.indices || [];
+      HEATMAP_DATA = feed.sector_heatmap || [];
+      return true;
+    }
+
+    async function loadAdminStocks(showError = false) {
+      const data = await adminApiGet('/admin/stocks');
+      if (!Array.isArray(data)) {
+        if (showError && data?.msg) showToast(data.msg, 'error');
+        return false;
+      }
+
+      ADMIN_STOCKS = data;
+      return true;
+    }
+
+    function nullableNumber(value) {
+      if (value === '' || value === null || value === undefined) return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    function setAdminMode(message, isEditing = false) {
+      const label = document.getElementById('admin-form-mode');
+      const saveBtn = document.getElementById('admin-save-btn');
+      if (label) label.textContent = message;
+      if (saveBtn) saveBtn.textContent = isEditing ? 'Update Stock' : 'Save Stock';
+    }
+
+    function populateAdminForm(stock, isEditing = true) {
+      document.getElementById('admin-symbol').value = stock.symbol || '';
+      document.getElementById('admin-name').value = stock.name || '';
+      document.getElementById('admin-sector').value = stock.sector || '';
+      document.getElementById('admin-industry').value = stock.industry || '';
+      document.getElementById('admin-price').value = stock.price ?? '';
+      document.getElementById('admin-prev-close').value = stock.previous_close ?? '';
+      document.getElementById('admin-market-cap').value = stock.market_cap ?? '';
+      document.getElementById('admin-volume').value = stock.avg_volume ?? '';
+      document.getElementById('admin-pe').value = stock.pe_ratio ?? '';
+      document.getElementById('admin-eps').value = stock.eps ?? '';
+      document.getElementById('admin-low').value = stock.week_52_low ?? '';
+      document.getElementById('admin-high').value = stock.week_52_high ?? '';
+      document.getElementById('admin-beta').value = stock.beta ?? '';
+      document.getElementById('admin-dividend').value = stock.dividend_yield ?? '';
+      document.getElementById('admin-ceo').value = stock.ceo || '';
+      document.getElementById('admin-founded').value = stock.founded || '';
+      document.getElementById('admin-country').value = stock.country || '';
+      document.getElementById('admin-employees').value = stock.employees ?? '';
+      document.getElementById('admin-description').value = stock.description || '';
+      document.getElementById('admin-active').checked = stock.is_active !== false;
+      const searchInput = document.getElementById('admin-search-query');
+      if (searchInput) searchInput.value = `${stock.symbol} ${stock.name || ''}`.trim();
+
+      adminEditSymbol = isEditing ? stock.symbol : null;
+      setAdminMode(
+        isEditing
+          ? `Editing ${stock.symbol}. You can sync it from Yahoo Finance and save the database copy.`
+          : `${stock.symbol} data was imported from Yahoo Finance. Review it and save to publish it across the site.`,
+        isEditing
+      );
+    }
+
+    function resetAdminForm() {
+      const form = document.getElementById('admin-stock-form');
+      if (form) form.reset();
+      adminEditSymbol = null;
+      document.getElementById('admin-active').checked = true;
+      setAdminMode('Create a new stock entry and it will be available across the site after save.');
+    }
+
+    function renderAdminSearchResults() {
+      const container = document.getElementById('admin-search-results');
+      if (!container) return;
+
+      if (!ADMIN_SEARCH_RESULTS.length) {
+        container.innerHTML = `<div class="admin-list-note">Search results will appear here. Pick one to import its Yahoo Finance profile into the form.</div>`;
+        return;
+      }
+
+      container.innerHTML = ADMIN_SEARCH_RESULTS.map(result => `
+        <div class="admin-search-item">
+          <div>
+            <div class="admin-search-symbol">${result.symbol}</div>
+            <div class="fw-700">${result.name}</div>
+            <div class="admin-search-meta">${result.exchange || 'Exchange N/A'} · ${result.quote_type || 'UNKNOWN'}${result.already_tracked ? ' · already tracked' : ''}</div>
+          </div>
+          <button class="btn btn-demo" style="width:auto;margin:0;" type="button" onclick="importAdminSearchResult('${result.symbol}')">${result.already_tracked ? 'Sync Existing' : 'Import'}</button>
+        </div>
+      `).join('');
+    }
+
+    async function submitAdminLogin(event) {
+      event.preventDefault();
+      const btn = document.getElementById('admin-login-btn');
+      const username = document.getElementById('admin-login-username').value.trim();
+      const password = document.getElementById('admin-login-password').value;
+      if (!username || !password) {
+        showToast('Enter your admin username and password.', 'warn');
+        return;
+      }
+
+      const originalLabel = btn.textContent;
+      btn.textContent = 'Unlocking…';
+      btn.disabled = true;
+      const result = await apiPost('/admin/auth/login', { username, password });
+      btn.textContent = originalLabel;
+      btn.disabled = false;
+
+      if (!result || result.status === 'error') {
+        showToast(result?.msg || 'Admin sign-in failed.', 'error');
+        return;
+      }
+
+      setAdminSession(result.token, result.user, result.expires_at);
+      setAdminAuthenticatedUI(true, result.user);
+      await refreshAdminStocks(false);
+      renderAdminSearchResults();
+      showToast('Admin console unlocked.', 'success');
+    }
+
+    async function logoutAdmin() {
+      await adminApiPost('/admin/auth/logout', {});
+      clearAdminSession();
+      ADMIN_STOCKS = [];
+      ADMIN_SEARCH_RESULTS = [];
+      setAdminAuthenticatedUI(false);
+      renderAdminSearchResults();
+      showToast('Admin session closed.', 'success');
+    }
+
+    function collectAdminFormPayload() {
+      return {
+        symbol: document.getElementById('admin-symbol').value.trim().toUpperCase(),
+        name: document.getElementById('admin-name').value.trim(),
+        sector: document.getElementById('admin-sector').value.trim() || null,
+        industry: document.getElementById('admin-industry').value.trim() || null,
+        description: document.getElementById('admin-description').value.trim() || null,
+        ceo: document.getElementById('admin-ceo').value.trim() || null,
+        founded: document.getElementById('admin-founded').value.trim() || null,
+        country: document.getElementById('admin-country').value.trim() || null,
+        employees: nullableNumber(document.getElementById('admin-employees').value),
+        market_cap: nullableNumber(document.getElementById('admin-market-cap').value),
+        pe_ratio: nullableNumber(document.getElementById('admin-pe').value),
+        eps: nullableNumber(document.getElementById('admin-eps').value),
+        avg_volume: nullableNumber(document.getElementById('admin-volume').value),
+        week_52_low: nullableNumber(document.getElementById('admin-low').value),
+        week_52_high: nullableNumber(document.getElementById('admin-high').value),
+        beta: nullableNumber(document.getElementById('admin-beta').value),
+        dividend_yield: nullableNumber(document.getElementById('admin-dividend').value),
+        price: nullableNumber(document.getElementById('admin-price').value) ?? 0,
+        previous_close: nullableNumber(document.getElementById('admin-prev-close').value),
+        is_active: document.getElementById('admin-active').checked
       };
-
-      LOCAL_PENDING_ORDERS.unshift(pendingOrder);
-      saveLocalState();
-      return { ok: true, status: 'success', pending: true, pending_order: pendingOrder, new_balance: PORTFOLIO_DATA.balance };
     }
 
-    function localExecuteTrade(symbol, type, qty, price, options = {}) {
-      if (isNaN(qty) || qty <= 0 || isNaN(price) || price <= 0) return { ok: false, msg: 'Invalid quantity or price' };
-
-      if (['LIMIT_BUY', 'LIMIT_SELL', 'STOP_LOSS'].includes(type) && !options.forceExecution) {
-        return localQueueOrder(symbol, type, qty, price);
+    async function searchAdminStocks() {
+      const query = document.getElementById('admin-search-query')?.value.trim();
+      if (!query) {
+        showToast('Type a company name or ticker first.', 'warn');
+        return;
       }
 
-      const total = qty * price;
-      const side = (type === 'BUY' || type === 'LIMIT_BUY') ? 'BUY' : 'SELL';
-
-      if (side === 'BUY') {
-        const availableBalance = PORTFOLIO_DATA.balance - getCommittedPendingBuyValue(options.excludePendingId);
-        if (availableBalance < total) return { ok: false, msg: 'Insufficient balance ($' + availableBalance.toFixed(0) + ' available)' };
-
-        PORTFOLIO_DATA.balance -= total;
-        const holding = PORTFOLIO_DATA.holdings.find(h => h.symbol === symbol);
-        if (holding) {
-          const newQty = holding.quantity + qty;
-          holding.avg_price = ((holding.avg_price * holding.quantity) + total) / newQty;
-          holding.quantity = newQty;
-        } else {
-          PORTFOLIO_DATA.holdings.push({ symbol, quantity: qty, avg_price: price });
-        }
-      } else {
-        const holding = PORTFOLIO_DATA.holdings.find(h => h.symbol === symbol);
-        const availableQty = holding ? holding.quantity - getCommittedPendingSellQty(symbol, options.excludePendingId) : 0;
-        if (!holding || availableQty < qty) return { ok: false, msg: 'Insufficient shares to sell' };
-
-        PORTFOLIO_DATA.balance += total;
-        holding.quantity -= qty;
-        if (holding.quantity === 0) PORTFOLIO_DATA.holdings = PORTFOLIO_DATA.holdings.filter(x => x.symbol !== symbol);
+      const result = await adminApiGet(`/admin/stocks/search?q=${encodeURIComponent(query)}`);
+      if (!Array.isArray(result)) {
+        showToast(result?.msg || 'Could not search Yahoo Finance right now.', 'error');
+        return;
       }
 
-      LOCAL_TXN_LOG.unshift({
+      ADMIN_SEARCH_RESULTS = result;
+      renderAdminSearchResults();
+      if (!result.length) showToast('No Yahoo Finance matches found for that search.', 'warn');
+    }
+
+    async function importAdminSearchResult(symbol) {
+      const searchInput = document.getElementById('admin-search-query');
+      if (searchInput) searchInput.value = symbol;
+      await fetchAndSaveFromYahoo();
+    }
+
+    async function fetchAdminStockFromYahoo(symbolOverride = null) {
+      const symbol = (symbolOverride || document.getElementById('admin-symbol').value || document.getElementById('admin-search-query').value || '').trim().toUpperCase();
+      if (!symbol) {
+        showToast('Enter a stock symbol or search for a company first.', 'warn');
+        return;
+      }
+
+      const fetched = await adminApiPost('/admin/stocks/fetch', {
         symbol,
-        side: options.loggedType || side,
-        quantity: qty,
-        price,
-        total,
-        timestamp: new Date().toISOString()
-      });
-      saveLocalState();
-      return { ok: true, status: 'success', new_balance: PORTFOLIO_DATA.balance };
-    }
-
-    function processLocalPendingOrders() {
-      if (!LOCAL_PENDING_ORDERS.length) return;
-
-      let changed = false;
-      const fills = [];
-
-      LOCAL_PENDING_ORDERS.forEach(order => {
-        if (order.status !== 'PENDING') return;
-
-        const livePrice = STOCKS.find(stock => stock.sym === order.symbol)?.price;
-        if (!livePrice) return;
-
-        const shouldFill =
-          (order.type === 'LIMIT_BUY' && livePrice <= order.target_price) ||
-          (order.type === 'LIMIT_SELL' && livePrice >= order.target_price) ||
-          (order.type === 'STOP_LOSS' && livePrice <= order.target_price);
-
-        if (!shouldFill) return;
-
-        const fillSide = order.type === 'LIMIT_BUY' ? 'BUY' : 'SELL';
-        const result = localExecuteTrade(order.symbol, fillSide, order.quantity, livePrice, {
-          forceExecution: true,
-          excludePendingId: order.id,
-          loggedType: fillSide
-        });
-
-        changed = true;
-        if (result.ok) {
-          order.status = 'FILLED';
-          order.filled_price = livePrice;
-          order.filled_at = new Date().toISOString();
-          fills.push(`${fillSide} ${order.quantity} ${order.symbol} @ $${livePrice.toFixed(2)}`);
-        } else {
-          order.status = 'CANCELLED';
-          order.cancel_reason = result.msg;
-        }
+        is_active: document.getElementById('admin-active').checked
       });
 
-      if (!changed) return;
-
-      saveLocalState();
-      updateDashSummary();
-
-      if (fills.length) {
-        showToast(`Pending order filled: ${fills[0]}${fills.length > 1 ? ` (+${fills.length - 1} more)` : ''}`, 'success');
+      if (!fetched || fetched.status === 'error') {
+        showToast(fetched?.msg || 'Could not fetch stock data from Yahoo Finance.', 'error');
+        return;
       }
 
-      if (currentPage === 'portfolio') initPortfolioPage();
-      if (currentPage === 'profile') initProfilePage();
-      if (currentPage === 'stock-detail') initStockDetail();
+      const existing = ADMIN_STOCKS.find(stock => stock.symbol === fetched.symbol);
+      populateAdminForm(fetched, !!existing);
+      if (!existing) adminEditSymbol = null;
+      showToast(`${fetched.symbol} data fetched from Yahoo Finance.`, 'success');
+    }
+
+    function renderAdminStocks() {
+      const countEl = document.getElementById('admin-stock-count');
+      const rowsEl = document.getElementById('admin-stock-rows');
+      if (!rowsEl) return;
+
+      if (countEl) {
+        countEl.textContent = `${ADMIN_STOCKS.length} stock${ADMIN_STOCKS.length === 1 ? '' : 's'} in database`;
+      }
+
+      if (!ADMIN_STOCKS.length) {
+        rowsEl.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">No stocks have been saved yet. Search Yahoo Finance above and save your first import here.</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      rowsEl.innerHTML = ADMIN_STOCKS.map(stock => `
+        <tr>
+          <td class="fw-700">${stock.symbol}</td>
+          <td>${stock.name}</td>
+          <td>${stock.sector || '—'}</td>
+          <td class="mono">$${Number(stock.price || 0).toFixed(2)}</td>
+          <td class="${(stock.change_pct || 0) >= 0 ? 'green' : 'red'} mono">${(stock.change_pct || 0) >= 0 ? '+' : ''}${Number(stock.change_pct || 0).toFixed(2)}%</td>
+          <td><span class="topbar-badge ${stock.is_active ? 'badge-live' : 'badge-offline'}">${stock.is_active ? 'ACTIVE' : 'HIDDEN'}</span></td>
+          <td>
+            <div class="flex gap-8" style="justify-content:flex-end;">
+              <button class="btn btn-demo" style="width:auto;margin:0;padding:4px 10px;font-size:0.72rem;" onclick="editAdminStock('${stock.symbol}')">Edit</button>
+              <button class="btn btn-demo" style="width:auto;margin:0;padding:4px 10px;font-size:0.72rem;" onclick="refreshAdminStockFromYahoo('${stock.symbol}')">Sync</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function editAdminStock(symbol) {
+      const stock = ADMIN_STOCKS.find(item => item.symbol === symbol);
+      if (!stock) {
+        showToast('Stock record not found in the admin catalog.', 'warn');
+        return;
+      }
+
+      populateAdminForm(stock, true);
+    }
+
+    async function refreshAdminStockFromYahoo(symbol) {
+      const result = await adminApiPost(`/admin/stocks/${symbol}/refresh`, {});
+      if (!result || result.status === 'error') {
+        showToast(result?.msg || `Could not refresh ${symbol} from Yahoo Finance.`, 'error');
+        return;
+      }
+
+      await Promise.all([loadAdminStocks(), loadStocksFromBackend(), loadDashboardFeed()]);
+      renderAdminStocks();
+      if (currentStock && currentStock.sym === symbol) {
+        currentStock = getStockBySymbol(symbol) || currentStock;
+      }
+      showToast(`${symbol} synced from Yahoo Finance.`, 'success');
+    }
+
+    async function refreshAdminStocks(showSuccessToast = false) {
+      const authorized = await syncAdminSession(false);
+      if (!authorized) {
+        renderAdminSearchResults();
+        return false;
+      }
+
+      const ok = await loadAdminStocks(true);
+      if (ok) {
+        renderAdminStocks();
+        renderAdminSearchResults();
+        if (showSuccessToast) showToast('Admin catalog refreshed.', 'success');
+      }
+      return ok;
+    }
+
+    async function submitAdminStock(event) {
+      event.preventDefault();
+
+      let payload = collectAdminFormPayload();
+      if (!payload.symbol) {
+        showToast('Enter a stock symbol.', 'warn');
+        return;
+      }
+
+      if (!payload.name) {
+        const fetched = await adminApiPost('/admin/stocks/fetch', { symbol: payload.symbol, is_active: payload.is_active });
+        if (!fetched || fetched.status === 'error') {
+          showToast(fetched?.msg || 'Could not fetch stock data from Yahoo Finance.', 'error');
+          return;
+        }
+        populateAdminForm(fetched, false);
+        payload = collectAdminFormPayload();
+      }
+
+      const result = adminEditSymbol
+        ? await adminApiPut(`/admin/stocks/${adminEditSymbol}`, payload)
+        : await adminApiPost('/admin/stocks', payload);
+
+      if (!result || result.status === 'error') {
+        showToast(result?.msg || 'Could not save the stock in the database.', 'error');
+        return;
+      }
+
+      await Promise.all([loadAdminStocks(), loadStocksFromBackend(), loadDashboardFeed()]);
+      renderAdminStocks();
+      populateAdminForm(result, true);
+      if (currentStock && currentStock.sym === result.symbol) {
+        currentStock = getStockBySymbol(result.symbol) || currentStock;
+      }
+      showToast(`${result.symbol} saved to the database and published across the site.`, 'success');
+    }
+
+    async function initAdminPage() {
+      const authorized = await syncAdminSession(false);
+      if (!authorized) {
+        setAdminAuthenticatedUI(false);
+        renderAdminSearchResults();
+        return;
+      }
+      await refreshAdminStocks(false);
+    }
+
+    async function fetchAndSaveFromYahoo() {
+      // Allow fetching from either the symbol field or the search query field
+      const symbolFromForm = document.getElementById('admin-symbol').value.trim().toUpperCase();
+      const symbolFromSearch = document.getElementById('admin-search-query').value.trim().toUpperCase();
+      const symbol = symbolFromForm || symbolFromSearch;
+      if (!symbol) {
+        showToast('Type a symbol in the Symbol field or search box first.', 'warn');
+        return;
+      }
+
+      const btn = document.querySelector('[onclick="fetchAndSaveFromYahoo()"]');
+      const original = btn ? btn.textContent : '';
+      if (btn) { btn.textContent = 'Fetching…'; btn.disabled = true; }
+
+      const fetched = await adminApiPost('/admin/stocks/fetch', {
+        symbol,
+        is_active: document.getElementById('admin-active').checked
+      });
+      if (btn) { btn.textContent = original; btn.disabled = false; }
+
+      if (!fetched || fetched.status === 'error') {
+        showToast(fetched?.msg || 'Could not fetch data from Yahoo Finance.', 'error');
+        return;
+      }
+
+      const existing = ADMIN_STOCKS.find(s => s.symbol === fetched.symbol);
+      populateAdminForm(fetched, !!existing);
+      if (!existing) adminEditSymbol = null;
+
+      // Auto-save immediately
+      const payload = collectAdminFormPayload();
+      const result = existing
+        ? await adminApiPut(`/admin/stocks/${fetched.symbol}`, payload)
+        : await adminApiPost('/admin/stocks', payload);
+
+      if (!result || result.status === 'error') {
+        showToast(result?.msg || 'Fetched OK but could not save to database.', 'error');
+        return;
+      }
+
+      await Promise.all([loadAdminStocks(), loadStocksFromBackend(), loadDashboardFeed()]);
+      renderAdminStocks();
+      populateAdminForm(result, true);
+      showToast(`${result.symbol} fetched from Yahoo Finance and saved successfully.`, 'success');
     }
 
     // ── Toast notification ─────────────────────────────────────────────
@@ -3781,40 +4408,26 @@
       });
     }
 
-    async function syncLivePrices() {
-      const syms = STOCKS.map(s => s.sym).join(',');
-      const prices = await apiGet(`/data/prices?symbols=${syms}`);
-      if (prices) {
-        STOCKS.forEach(s => {
-          const d = prices[s.sym];
-          if (d && d.price) {
-            s.price = d.price;
-            s.chg = d.chg;
-            s.chgPct = d.chgPct;
-          }
-        });
-      }
+    async function syncLivePrices(showError = false) {
+      const stocksLoaded = await loadStocksFromBackend(showError);
+      await loadDashboardFeed(false);
+      return stocksLoaded;
     }
 
-    async function syncPortfolio() {
-      // Fetch live prices first so portfolio P&L is accurate
-      await syncLivePrices();
+    async function syncPortfolio(showError = false) {
+      await syncLivePrices(showError);
 
       const data = await apiGet('/portfolio/');
       if (data) {
         PORTFOLIO_DATA = data;
-        const txns = await apiGet('/portfolio/transactions');
-        if (txns && Array.isArray(txns)) {
-          LOCAL_TXN_LOG = txns;
-        }
-        saveLocalState();
-      } else {
-        loadLocalState();
+      } else if (showError) {
+        showToast('Could not load portfolio data from the backend.', 'error');
       }
       updateDashSummary();
       if (typeof currentPage !== 'undefined' && currentPage === 'dashboard') {
         renderDashboardContent();
       }
+      return !!data;
     }
 
 
@@ -3823,7 +4436,7 @@
        All pages exist in DOM, only ONE is visible at a time via
        opacity+pointer-events. This avoids CSS specificity fights.
     ================================================================ */
-    const ALL_PAGES = ['splash', 'login', 'dashboard', 'stock-detail', 'ai', 'portfolio', 'markets', 'profile'];
+    const ALL_PAGES = ['splash', 'login', 'dashboard', 'stock-detail', 'ai', 'portfolio', 'markets', 'profile', 'admin'];
 
     function showOnly(pageId) {
       ALL_PAGES.forEach(id => {
@@ -3888,6 +4501,7 @@
         case 'portfolio': initPortfolioPage(); break;
         case 'markets': initMarketsPage(); break;
         case 'profile': initProfilePage(); break;
+        case 'admin': initAdminPage(); break;
       }
     }
 
@@ -3983,6 +4597,7 @@
 
     // Draw sparkline on canvas
     function drawSparkline(canvas, data, up) {
+      if (!Array.isArray(data) || !data.length) return;
       const ctx = canvas.getContext('2d');
       const w = canvas.offsetWidth || 160;
       const h = 40;
@@ -3996,7 +4611,7 @@
 
       ctx.beginPath();
       data.forEach((v, i) => {
-        const x = (i / (data.length - 1)) * w;
+        const x = data.length === 1 ? w / 2 : (i / (data.length - 1)) * w;
         const y = h - ((v - min) / range) * h * 0.8 - h * 0.1;
         i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
       });
@@ -4012,8 +4627,8 @@
       ctx.fill();
     }
 
-    function initDashboard() {
-      syncPortfolio();
+    async function initDashboard() {
+      await Promise.all([syncPortfolio(), loadDashboardFeed()]);
 
       // Greeting
       const hour = new Date().getHours();
@@ -4041,10 +4656,10 @@
 
       // Calculate invested value and market value from holdings
       const investedVal = holdings.reduce((sum, h) => sum + (h.quantity * h.avg_price), 0);
-      const marketVal = holdings.reduce((sum, h) => sum + (h.quantity * (STOCKS.find(s => s.sym === h.symbol)?.price || h.avg_price)), 0);
+      const marketVal = holdings.reduce((sum, h) => sum + (h.quantity * (getStockBySymbol(h.symbol)?.price || h.avg_price)), 0);
       const totalPnl = marketVal - investedVal;
       const totalWorth = PORTFOLIO_DATA.balance + marketVal;
-      const dayPnl = holdings.reduce((sum, h) => sum + (h.quantity * (STOCKS.find(s => s.sym === h.symbol)?.chg || 0)), 0);
+      const dayPnl = holdings.reduce((sum, h) => sum + (h.quantity * (getStockBySymbol(h.symbol)?.chg || 0)), 0);
       const priorValue = Math.max(totalWorth - dayPnl, 1);
       const dayPct = (dayPnl / priorValue) * 100;
 
@@ -4087,39 +4702,35 @@
 
 
     function renderDashboardContent() {
-      // AI Insights
-      const AI_INSIGHTS = [
-        { text: 'AAPL showing bullish breakout pattern', tag: 'buy', dot: 'dot-green' },
-        { text: 'TSLA volume spike detected — bearish', tag: 'sell', dot: 'dot-red' },
-        { text: 'NVDA momentum strong, AI sector rallying', tag: 'buy', dot: 'dot-green' },
-        { text: 'META consolidating — hold recommended', tag: 'hold', dot: 'dot-amber' },
-        { text: 'Market sentiment index: 67/100 Bullish', tag: 'buy', dot: 'dot-purple' },
-      ];
+      const AI_INSIGHTS = DASHBOARD_FEED.insights || [];
       const list = document.getElementById('ai-insights-list');
-      if (list) list.innerHTML = AI_INSIGHTS.map(i => `
+      if (list) list.innerHTML = AI_INSIGHTS.length ? AI_INSIGHTS.map(i => `
     <div class="ai-insight-row" onclick="navigate('ai')">
       <div class="ai-insight-dot ${i.dot}"></div>
       <div class="ai-insight-text">${i.text}</div>
       <div class="ai-insight-tag tag-${i.tag}">${i.tag.toUpperCase()}</div>
     </div>
-  `).join('');
+  `).join('') : `<div class="empty-state">Insights will appear here once the backend returns stock data.</div>`;
 
       // Market Mood
-      const score = 67;
+      const score = DASHBOARD_FEED.market_mood?.score ?? 50;
       setTimeout(() => {
         const thumb = document.getElementById('mood-thumb');
         if (thumb) thumb.style.left = score + '%';
         const scoreEl = document.getElementById('mood-score');
         if (scoreEl) countUp(scoreEl, score, '', '', 800);
         const descEl = document.getElementById('mood-desc');
-        if (descEl) descEl.textContent = score > 60 ? 'Greed — markets are bullish' : score > 40 ? 'Neutral — mixed signals' : 'Fear — caution advised';
+        if (descEl) descEl.textContent = DASHBOARD_FEED.market_mood?.description || 'The backend market feed is warming up.';
         const nameEl = document.getElementById('mood-name');
-        if (nameEl) { nameEl.textContent = 'Moderately Greedy'; nameEl.style.color = 'var(--neon-green)'; }
+        if (nameEl) {
+          nameEl.textContent = DASHBOARD_FEED.market_mood?.name || 'Neutral';
+          nameEl.style.color = score >= 55 ? 'var(--neon-green)' : score <= 45 ? 'var(--red)' : 'var(--text-2)';
+        }
       }, 500);
 
       // Watchlist
       const wl = document.getElementById('watchlist-rows');
-      if (wl) wl.innerHTML = STOCKS.slice(0, 5).map(s => `
+      if (wl) wl.innerHTML = STOCKS.length ? STOCKS.slice(0, 5).map(s => `
     <div class="watchlist-row" onclick="openStock('${s.sym}')">
       <div class="watchlist-symbol">${s.sym}</div>
       <div class="watchlist-name">${s.name}</div>
@@ -4127,14 +4738,17 @@
       <div class="watchlist-change ${s.chgPct >= 0 ? 'green' : 'red'}">${s.chgPct >= 0 ? '+' : ''}${s.chgPct.toFixed(2)}%</div>
       <button class="watchlist-trade" onclick="event.stopPropagation();openStock('${s.sym}')">Trade</button>
     </div>
-  `).join('');
+  `).join('') : `<div class="empty-state">No stocks available yet. Add one from the admin page.</div>`;
 
       // Trending stock cards
       const grid = document.getElementById('trending-cards');
-
-      grid.innerHTML = STOCKS.map((s, i) => {
-        const up = s.chgPct >= 0;
-        return `
+      if (!grid) return;
+      if (!STOCKS.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1 / -1;">No stocks in the catalog yet. Open the admin page to add your first symbol.</div>`;
+      } else {
+        grid.innerHTML = STOCKS.map((s, i) => {
+          const up = s.chgPct >= 0;
+          return `
       <div class="stock-card card-enter delay-${Math.min(i + 1, 6)}" onclick="openStock('${s.sym}')">
         <div class="stock-symbol">${s.sym}</div>
         <div class="stock-name">${s.name}</div>
@@ -4142,19 +4756,21 @@
         <div class="stock-change ${up ? 'green' : 'red'}">${s.chgPct >= 0 ? '▲' : '▼'} ${Math.abs(s.chgPct).toFixed(2)}%</div>
         <canvas class="stock-sparkline" id="spark-${s.sym}"></canvas>
       </div>`;
-      }).join('');
+        }).join('');
+      }
 
       // Draw sparklines after layout
       setTimeout(() => {
         STOCKS.forEach(s => {
           const canvas = document.getElementById(`spark-${s.sym}`);
-          if (canvas) drawSparkline(canvas, generateSparkline(s.price), s.chgPct >= 0);
+          const sparklineData = Array.isArray(s.sparkline) && s.sparkline.length ? s.sparkline : generateSparkline(s.price);
+          if (canvas) drawSparkline(canvas, sparklineData, s.chgPct >= 0);
         });
       }, 100);
 
       // Heatmap
       const hm = document.getElementById('heatmap-grid');
-      hm.innerHTML = HEATMAP_DATA.map(t => {
+      if (hm) hm.innerHTML = HEATMAP_DATA.length ? HEATMAP_DATA.map(t => {
         const up = t.chg >= 0;
         const intensity = Math.min(Math.abs(t.chg) / 3, 1);
         const [r, g, b] = t.color;
@@ -4164,7 +4780,7 @@
         <div class="heatmap-sym">${t.sym}</div>
         <div class="heatmap-chg">${up ? '+' : ''}${t.chg.toFixed(2)}%</div>
       </div>`;
-      }).join('');
+      }).join('') : `<div class="empty-state" style="grid-column:1 / -1;">Sector performance will appear once the backend has stock data to aggregate.</div>`;
 
       // Live price ticker
       startLivePriceTicker();
@@ -4172,37 +4788,94 @@
 
     function startLivePriceTicker() {
       if (window._tickerInterval) clearInterval(window._tickerInterval);
-      window._tickerInterval = setInterval(() => {
-        // Randomly update one stock card price
-        const s = STOCKS[Math.floor(Math.random() * STOCKS.length)];
-        const delta = (Math.random() - 0.5) * 0.4;
-        s.price = +(s.price + delta).toFixed(2);
-        s.chg = +(s.chg + delta).toFixed(2);
-        s.chgPct = +(s.chgPct + (delta / s.price) * 100).toFixed(2);
-        // Flash card if on dashboard
-        const priceEl = document.querySelector(`#trending-cards .stock-card:nth-child(${STOCKS.indexOf(s) + 1}) .stock-price`);
-        if (priceEl) {
-          priceEl.textContent = `$${s.price.toFixed(2)}`;
-          priceFlash(priceEl.closest('.stock-card'), delta > 0);
+      window._tickerInterval = setInterval(async () => {
+        const previousPrices = Object.fromEntries(STOCKS.map(stock => [stock.sym, stock.price]));
+        await syncLivePrices();
+
+        if (currentPage === 'dashboard') {
+          renderDashboardContent();
+          Object.entries(previousPrices).forEach(([symbol, previousPrice], index) => {
+            const updated = getStockBySymbol(symbol);
+            const priceEl = document.querySelector(`#trending-cards .stock-card:nth-child(${index + 1}) .stock-price`);
+            if (updated && priceEl && previousPrice !== updated.price) {
+              priceFlash(priceEl.closest('.stock-card'), updated.price >= previousPrice);
+            }
+          });
+          updateDashSummary();
         }
 
-        processLocalPendingOrders();
-      }, 2500);
+        if (currentPage === 'markets') initMarketsPage();
+        if (currentPage === 'ai') initAIPage();
+        if (currentPage === 'stock-detail' && currentStock) initStockDetail();
+        if (currentPage === 'portfolio') initPortfolioPage();
+      }, 15000);
     }
 
     /* ================================================================
        STOCK DETAIL
     ================================================================ */
     function openStock(sym) {
-      currentStock = STOCKS.find(s => s.sym === sym) || STOCKS[0];
+      currentStock = getStockBySymbol(sym) || STOCKS[0] || null;
+      if (!currentStock) {
+        showToast('No stock data is available yet. Add a stock from the admin page first.', 'warn');
+        return;
+      }
       navigate('stock-detail');
     }
 
+    function renderStockNews(newsItems) {
+      const container = document.getElementById('news-list');
+      if (!container) return;
+      if (!Array.isArray(newsItems) || !newsItems.length) {
+        container.innerHTML = `<div class="empty-state">No news is cached for this symbol yet. It will populate automatically after the next Yahoo Finance sync.</div>`;
+        return;
+      }
+
+      container.innerHTML = newsItems.map(item => `
+        <a href="${item.link || '#'}" target="_blank" rel="noreferrer" style="display:block;padding:12px 0;border-bottom:1px solid var(--border);text-decoration:none;">
+          <div style="font-size:0.85rem;color:var(--text-1);font-weight:500;">${item.title}</div>
+          <div style="font-size:0.72rem;color:var(--text-3);margin-top:4px;">${item.publisher || 'Yahoo Finance'} · ${item.relative_time || 'Recently'}</div>
+        </a>
+      `).join('');
+    }
+
+    function renderDetailForecastTable(rows, currentPrice) {
+      const table = document.getElementById('ai-forecast-rows');
+      if (!table) return;
+      if (!Array.isArray(rows) || !rows.length) {
+        table.innerHTML = `<tr><td colspan="6"><div class="empty-state">AI forecast rows will appear once the backend analysis cache is ready.</div></td></tr>`;
+        return;
+      }
+
+      table.innerHTML = rows.map(row => {
+        const consensusUp = Number(row.consensus || currentPrice) >= currentPrice;
+        return `
+          <tr>
+            <td class="fw-700">${row.period}</td>
+            <td class="mono">$${Number(row.lstm || currentPrice).toFixed(2)}</td>
+            <td class="mono">$${Number(row.gru || currentPrice).toFixed(2)}</td>
+            <td class="mono">$${Number(row.transformer || currentPrice).toFixed(2)}</td>
+            <td class="mono">$${Number(row.ensemble || currentPrice).toFixed(2)}</td>
+            <td class="mono fw-700 ${consensusUp ? 'green' : 'red'}">$${Number(row.consensus || currentPrice).toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     async function initStockDetail() {
+      if (!currentStock) {
+        const fallback = STOCKS[0];
+        if (!fallback) {
+          showToast('No stock detail is available because the backend catalog is empty.', 'warn');
+          navigate('dashboard');
+          return;
+        }
+        currentStock = fallback;
+      }
+
       const s = currentStock;
       const up = s.chgPct >= 0;
 
-      // Header
       document.getElementById('detail-sym').textContent = s.sym;
       document.getElementById('detail-name').textContent = s.name;
       document.getElementById('about-sym-name').textContent = s.name;
@@ -4210,14 +4883,13 @@
       document.getElementById('detail-change').className = `fw-600 ${up ? 'green' : 'red'}`;
       document.getElementById('detail-change').textContent = `${up ? '+' : ''}$${s.chg.toFixed(2)} (${up ? '+' : ''}${s.chgPct.toFixed(2)}%)`;
 
-      // Position Summary
-      const holding = PORTFOLIO_DATA.holdings.find(h => h.symbol === s.sym);
+      const holding = (PORTFOLIO_DATA.holdings || []).find(h => h.symbol === s.sym);
       if (holding) {
         const mktVal = holding.quantity * s.price;
         const pnl = mktVal - (holding.quantity * holding.avg_price);
         const pnlPct = (pnl / (holding.quantity * holding.avg_price)) * 100;
-        const totalPortfolioValue = PORTFOLIO_DATA.balance + PORTFOLIO_DATA.holdings.reduce((sum, item) => {
-          const live = STOCKS.find(stock => stock.sym === item.symbol)?.price || item.avg_price;
+        const totalPortfolioValue = PORTFOLIO_DATA.balance + (PORTFOLIO_DATA.holdings || []).reduce((sum, item) => {
+          const live = getStockBySymbol(item.symbol)?.price || item.avg_price;
           return sum + (item.quantity * live);
         }, 0);
 
@@ -4231,69 +4903,79 @@
         ['pos-shares', 'pos-mktval', 'pos-avg', 'pos-div', 'pos-return'].forEach(id => document.getElementById(id).textContent = '—');
       }
 
-      // Fundamentals - Async fetch from robust yfinance backend implementation
-      let f = await apiGet(`/data/fundamentals/${s.sym}`);
-      if (!f) {
-        f = { mktcap: '—', pe: '—', eps: '—', vol: '—', low: '—', high: '—', beta: '—', div: '—', desc: 'Company description unavailable or offline.', ceo: '—', founded: '—', sector: '—', price: s.price };
-      }
+      const [f, analysis, newsItems, financials] = await Promise.all([
+        apiGet(`/data/fundamentals/${s.sym}`),
+        apiGet(`/data/analysis/${s.sym}?model=Ensemble&horizon=1M`),
+        apiGet(`/data/news/${s.sym}`),
+        apiGet(`/data/financials/${s.sym}`),
+      ]);
 
-      // Update real-time price system-wide
-      if (f.price) {
-        s.price = parseFloat(f.price);
-        const masterRef = STOCKS.find(x => x.sym === s.sym);
+      const fundamentals = f || { mktcap: '—', pe: '—', eps: '—', vol: '—', low: '—', high: '—', beta: '—', div: '—', desc: 'Company description unavailable or offline.', ceo: '—', founded: '—', sector: '—', price: s.price, history: [] };
+
+      if (fundamentals.price) {
+        s.price = parseFloat(fundamentals.price);
+        const masterRef = getStockBySymbol(s.sym);
         if (masterRef) masterRef.price = s.price;
         document.getElementById('detail-price').textContent = `$${s.price.toFixed(2)}`;
-        // Re-evaluate limits if applicable
-        if (currentOrderType !== 'market' && document.getElementById('trade-target-price').value == "") {
+        if (currentOrderType !== 'market' && document.getElementById('trade-target-price').value === '') {
           document.getElementById('trade-target-price').value = s.price.toFixed(2);
         }
       }
 
-      document.getElementById('detail-desc').textContent = f.desc;
-      document.getElementById('detail-ceo').textContent = f.ceo;
-      document.getElementById('detail-founded').textContent = f.founded;
-      document.getElementById('detail-sector').textContent = f.sector;
-      document.getElementById('detail-industry').textContent = f.industry || '—';
-      document.getElementById('detail-country').textContent = f.country || '—';
-      document.getElementById('detail-employees').textContent = f.employees || '—';
-      document.getElementById('fund-mktcap').textContent = f.mktcap;
-      document.getElementById('fund-pe').textContent = f.pe;
-      document.getElementById('fund-eps').textContent = f.eps;
-      document.getElementById('fund-vol').textContent = f.vol;
-      document.getElementById('fund-52h').textContent = f.high;
-      document.getElementById('fund-52l').textContent = f.low;
-      document.getElementById('fund-beta').textContent = f.beta;
-      document.getElementById('fund-div').textContent = f.div;
+      document.getElementById('detail-desc').textContent = fundamentals.desc;
+      document.getElementById('detail-ceo').textContent = fundamentals.ceo;
+      document.getElementById('detail-founded').textContent = fundamentals.founded;
+      document.getElementById('detail-sector').textContent = fundamentals.sector;
+      document.getElementById('detail-industry').textContent = fundamentals.industry || '—';
+      document.getElementById('detail-country').textContent = fundamentals.country || '—';
+      document.getElementById('detail-employees').textContent = fundamentals.employees || '—';
+      document.getElementById('fund-mktcap').textContent = fundamentals.mktcap;
+      document.getElementById('fund-pe').textContent = fundamentals.pe;
+      document.getElementById('fund-eps').textContent = fundamentals.eps;
+      document.getElementById('fund-vol').textContent = fundamentals.vol;
+      document.getElementById('fund-52h').textContent = fundamentals.high;
+      document.getElementById('fund-52l').textContent = fundamentals.low;
+      document.getElementById('fund-beta').textContent = fundamentals.beta;
+      document.getElementById('fund-div').textContent = fundamentals.div;
+      if (document.getElementById('fund-prev-close')) {
+        document.getElementById('fund-prev-close').textContent = fundamentals.prevClose ? `$${fundamentals.prevClose.toFixed(2)}` : '—';
+      }
+      const ret6mEl = document.getElementById('fund-6m-return');
+      if (ret6mEl) {
+        const r = fundamentals.return6m;
+        ret6mEl.textContent = fundamentals.return6mStr || '—';
+        ret6mEl.className = `fw-700 text-right ${r != null ? (r >= 0 ? 'green' : 'red') : ''}`;
+      }
 
-      // Render 6M price history chart
       const histCtx = document.getElementById('historyChart');
-      if (histCtx && f.history && f.history.length > 1) {
+      if (histCtx && Array.isArray(fundamentals.history) && fundamentals.history.length > 1) {
         if (window._historyChart) window._historyChart.destroy();
-        const isUp = f.history[f.history.length - 1] >= f.history[0];
+        const isUp = fundamentals.history[fundamentals.history.length - 1] >= fundamentals.history[0];
         window._historyChart = new Chart(histCtx, {
           type: 'line',
           data: {
-            labels: f.history.map((_, i) => {
-              const d = new Date();
-              d.setDate(d.getDate() - ((f.history.length - 1 - i) * 7));
-              return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            }),
+            labels: fundamentals.history.map((_, i) => i + 1),
             datasets: [{
-              data: f.history,
+              data: fundamentals.history,
               borderColor: isUp ? '#00D09C' : '#FF4D4F',
               borderWidth: 2,
-              tension: 0.4,
+              tension: 0.35,
               pointRadius: 0,
               fill: true,
               backgroundColor: isUp ? 'rgba(0,208,156,0.06)' : 'rgba(255,77,79,0.06)'
             }]
           },
           options: {
-            responsive: true, maintainAspectRatio: false,
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
-              legend: { display: false }, tooltip: {
-                backgroundColor: 'white', titleColor: '#0D1421', bodyColor: '#3D4760',
-                borderColor: 'rgba(30,42,120,0.1)', borderWidth: 1,
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: 'white',
+                titleColor: '#0D1421',
+                bodyColor: '#3D4760',
+                borderColor: 'rgba(30,42,120,0.1)',
+                borderWidth: 1,
                 callbacks: { label: c => ` $${c.parsed.y.toFixed(2)}` }
               }
             },
@@ -4305,87 +4987,147 @@
         });
       }
 
-      // AI Forecast Table — deterministic seeded
-      const periods = ['1W', '1M', '3M', '6M', '1Y', '5Y'];
-      const pSeed = s.sym.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const rows = periods.map((p, pi) => {
-        const base = s.price;
-        const chg = (seededRandom(pSeed + pi * 100) * 0.15) - 0.05;
-        const forecasts = [
-          (base * (1 + chg + seededRandom(pSeed + pi + 1) * 0.02)).toFixed(2),
-          (base * (1 + chg + seededRandom(pSeed + pi + 2) * 0.03)).toFixed(2),
-          (base * (1 + chg - seededRandom(pSeed + pi + 3) * 0.01)).toFixed(2),
-          (base * (1 + chg + seededRandom(pSeed + pi + 4) * 0.01)).toFixed(2)
-        ];
-        const consensus = (forecasts.reduce((a, b) => parseFloat(a) + parseFloat(b), 0) / 4).toFixed(2);
-        return `
-      <tr>
-        <td class="fw-700">${p}</td>
-        <td class="mono">$${forecasts[0]}</td>
-        <td class="mono">$${forecasts[1]}</td>
-        <td class="mono">$${forecasts[2]}</td>
-        <td class="mono">$${forecasts[3]}</td>
-        <td class="mono fw-700 green">$${consensus}</td>
-      </tr>
-    `;
-      }).join('');
-      document.getElementById('ai-forecast-rows').innerHTML = rows;
+      renderDetailForecastTable(analysis?.detail_forecasts || [], s.price);
+      renderStockNews(Array.isArray(newsItems) ? newsItems : []);
+      drawFinancialCharts(financials, window._currentFinPeriod || 'quarterly');
 
       updateTradeTotal();
-      document.querySelectorAll('#page-stock-detail .chart-tab').forEach(tab => {
+      document.querySelectorAll('#page-stock-detail .chart-tab:not(#fin-tab-quarterly):not(#fin-tab-annual)').forEach(tab => {
         tab.classList.toggle('active', tab.textContent.trim() === currentDetailPeriod);
       });
-      drawStockDetailChart(s, currentDetailPeriod);
-
-      // News Headlines
-      const NEWS = [
-        { text: `${s.sym} anticipates record demand for next-gen products`, time: '42m ago' },
-        { text: `Macro trends favor ${s.name} according to top analysts`, time: '2h ago' },
-        { text: `Institutional flow turns sharply bullish on ${s.sym}`, time: '5h ago' }
-      ];
-      document.getElementById('news-list').innerHTML = NEWS.map(n => `
-    <div style="padding:12px 0; border-bottom:1px solid var(--border); cursor:pointer;">
-      <div style="font-size:0.85rem; color:var(--text-1); font-weight:500;">${n.text}</div>
-      <div style="font-size:0.72rem; color:var(--text-3); margin-top:4px;">${n.time}</div>
-    </div>
-  `).join('');
+      await drawStockDetailChart(s, currentDetailPeriod);
     }
 
-    function drawStockDetailChart(s, period = currentDetailPeriod) {
+    // ── Financial Period Toggle ────────────────────────────────────────
+    let _stockFinancialsCache = null;
+    window._currentFinPeriod = 'quarterly';
+
+    function setFinancialPeriod(period, btn) {
+      window._currentFinPeriod = period;
+      document.getElementById('fin-tab-quarterly').classList.toggle('active', period === 'quarterly');
+      document.getElementById('fin-tab-annual').classList.toggle('active', period === 'annual');
+      if (_stockFinancialsCache) drawFinancialCharts(_stockFinancialsCache, period);
+    }
+
+    function drawFinancialCharts(data, period = 'quarterly') {
+      _stockFinancialsCache = data;
+      const section = document.getElementById('financials-section');
+      if (!section) return;
+
+      const periodData = data?.[period];
+      const revenueRows = periodData?.revenue || [];
+      const profitRows = periodData?.profit || [];
+
+      if (!revenueRows.length && !profitRows.length) {
+        // Don't destroy the tab structure — just show empty state in chart areas
+        const revWrap = section.querySelector('#revenueChart')?.parentElement;
+        const profWrap = section.querySelector('#profitChart')?.parentElement;
+        if (window._revenueChart) { window._revenueChart.destroy(); window._revenueChart = null; }
+        if (window._profitChart) { window._profitChart.destroy(); window._profitChart = null; }
+        if (revWrap) revWrap.innerHTML = `<div class="empty-state" style="height:180px;display:flex;align-items:center;justify-content:center;font-size:0.85rem;">Financial data not available (may take a few seconds to load)</div>`;
+        if (profWrap) profWrap.style.display = 'none';
+        return;
+      }
+      // Restore profit chart wrap if it was hidden
+      const profWrapRestore = section.querySelector('#profitChart')?.parentElement;
+      if (profWrapRestore) profWrapRestore.style.display = '';
+
+      // Rebuild canvases fresh each draw to avoid stale contexts
+      const revWrap = section.querySelector('#revenueChart')?.parentElement;
+      const profWrap = section.querySelector('#profitChart')?.parentElement;
+      if (revWrap) revWrap.innerHTML = '<canvas id="revenueChart"></canvas>';
+      if (profWrap) profWrap.innerHTML = '<canvas id="profitChart"></canvas>';
+
+      const sharedOptions = (title, color) => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 600, easing: 'easeOutQuart' },
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: true,
+            text: title,
+            color: '#3D4760',
+            font: { family: 'Inter', size: 11, weight: '700' },
+            padding: { bottom: 8 }
+          },
+          tooltip: {
+            backgroundColor: 'white',
+            titleColor: '#0D1421',
+            bodyColor: '#3D4760',
+            borderColor: 'rgba(30,42,120,0.1)',
+            borderWidth: 1,
+            callbacks: { label: c => ` $${c.parsed.y.toFixed(2)}B` }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#7B8DB0', font: { size: 10 }, maxRotation: 45, minRotation: 0 }
+          },
+          y: {
+            grid: { color: 'rgba(30,42,120,0.05)' },
+            ticks: { color: '#7B8DB0', font: { size: 10 }, callback: v => `$${v}B` }
+          }
+        }
+      });
+
+      const revCtx = document.getElementById('revenueChart');
+      if (revCtx && revenueRows.length) {
+        if (window._revenueChart) { window._revenueChart.destroy(); }
+        window._revenueChart = new Chart(revCtx, {
+          type: 'bar',
+          data: {
+            labels: revenueRows.map(r => r.label),
+            datasets: [{
+              label: 'Revenue',
+              data: revenueRows.map(r => r.value),
+              backgroundColor: revenueRows.map(r => r.value >= 0 ? 'rgba(59,158,255,0.8)' : 'rgba(255,77,79,0.8)'),
+              borderColor: revenueRows.map(r => r.value >= 0 ? '#3B9EFF' : '#FF4D4F'),
+              borderWidth: 1,
+              borderRadius: 4,
+              borderSkipped: false,
+            }]
+          },
+          options: sharedOptions('Revenue (Billions USD)', '#3B9EFF'),
+        });
+      }
+
+      const profCtx = document.getElementById('profitChart');
+      if (profCtx && profitRows.length) {
+        if (window._profitChart) { window._profitChart.destroy(); }
+        window._profitChart = new Chart(profCtx, {
+          type: 'bar',
+          data: {
+            labels: profitRows.map(r => r.label),
+            datasets: [{
+              label: 'Net Income',
+              data: profitRows.map(r => r.value),
+              backgroundColor: profitRows.map(r => r.value >= 0 ? 'rgba(0,208,156,0.8)' : 'rgba(255,77,79,0.6)'),
+              borderColor: profitRows.map(r => r.value >= 0 ? '#00D09C' : '#FF4D4F'),
+              borderWidth: 1,
+              borderRadius: 4,
+              borderSkipped: false,
+            }]
+          },
+          options: sharedOptions('Net Income (Billions USD)', '#00D09C'),
+        });
+      }
+    }
+
+    async function drawStockDetailChart(s, period = currentDetailPeriod) {
       const ctx = document.getElementById('stockDetailChart');
       if (!ctx) return;
       if (detailChart) detailChart.destroy();
 
-      const PERIOD_CONFIG = {
-        '1D': { points: 24, stepHours: 1, volatility: 0.0025, label: { hour: 'numeric' } },
-        '1W': { points: 7, stepDays: 1, volatility: 0.008, label: { weekday: 'short' } },
-        '1M': { points: 30, stepDays: 1, volatility: 0.013, label: { month: 'short', day: 'numeric' } },
-        '3M': { points: 12, stepDays: 7, volatility: 0.018, label: { month: 'short', day: 'numeric' } },
-        '1Y': { points: 12, stepDays: 30, volatility: 0.024, label: { month: 'short' } }
-      };
+      const chartResponse = await apiGet(`/data/chart/${s.sym}?period=${encodeURIComponent(period)}&model=Ensemble`);
+      const chartPayload = chartResponse?.chart;
+      const labels = chartPayload?.labels || [];
+      const actual = chartPayload?.actual || [];
+      const aiLine = chartPayload?.predicted || [];
 
-      const config = PERIOD_CONFIG[period] || PERIOD_CONFIG['1M'];
-      const labels = [];
-      const actual = [];
-      const aiLine = [];
-      let p = s.price * (period === '1D' ? 0.995 : 0.88);
-      const forecastWindow = Math.max(2, Math.ceil(config.points * 0.18));
-
-      for (let i = config.points; i >= 0; i--) {
-        const d = new Date();
-        if (config.stepHours) {
-          d.setHours(d.getHours() - (i * config.stepHours));
-        } else {
-          d.setDate(d.getDate() - (i * config.stepDays));
-        }
-        p += (Math.random() - 0.47) * p * config.volatility;
-        labels.push(
-          config.stepHours
-            ? d.toLocaleTimeString('en-US', { hour: 'numeric' })
-            : d.toLocaleDateString('en-US', config.label)
-        );
-        actual.push(+p.toFixed(2));
-        aiLine.push(i < forecastWindow ? +(p * (1 + (Math.random() - 0.45) * 0.008)).toFixed(2) : null);
+      if (!labels.length) {
+        return;
       }
 
       detailChart = new Chart(ctx, {
@@ -4402,7 +5144,7 @@
               pointRadius: 0,
               pointHoverRadius: 5,
               fill: true,
-              tension: 0.4,
+              tension: 0.35,
             },
             {
               label: 'AI Prediction',
@@ -4412,7 +5154,7 @@
               borderWidth: 2,
               pointRadius: 0,
               fill: false,
-              tension: 0.4,
+              tension: 0.35,
             }
           ],
         },
@@ -4433,27 +5175,33 @@
               titleColor: '#0D1421',
               bodyColor: '#3D4760',
               padding: 12,
-              boxShadow: '0 4px 16px rgba(30,42,120,0.1)',
               callbacks: {
                 label: c => ` ${c.dataset.label}: $${c.parsed.y?.toFixed(2) ?? '—'}`
               },
             },
           },
           scales: {
-            x: { grid: { display: false }, ticks: { color: '#7B8DB0', maxTicksLimit: 8, font: { size: 11 } } },
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: '#7B8DB0',
+                maxTicksLimit: currentDetailPeriod === '1Y' ? 12 : currentDetailPeriod === '3M' ? 8 : 7,
+                maxRotation: 0,
+                font: { size: 11 }
+              }
+            },
             y: { grid: { color: 'rgba(30,42,120,0.05)' }, ticks: { color: '#7B8DB0', callback: v => '$' + v.toLocaleString(), font: { size: 11 } } },
           },
         },
       });
     }
 
-    function setChartPeriod(btn, period) {
-      document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+    async function setChartPeriod(btn, period) {
+      document.querySelectorAll('#page-stock-detail .chart-tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
       currentDetailPeriod = period;
-      if (detailChart) {
-        detailChart.destroy();
-        drawStockDetailChart(currentStock, period);
+      if (currentStock) {
+        await drawStockDetailChart(currentStock, period);
       }
     }
 
@@ -4523,8 +5271,10 @@
     }
 
     function updateTradeTotal() {
+      if (!currentStock) return;
       const qty = parseInt(document.getElementById('trade-qty')?.value || 1, 10);
       const el = document.getElementById('trade-total');
+      if (!el) return;
       if (currentOrderType === 'market') {
         el.textContent = '$' + (qty * currentStock.price).toLocaleString('en-US', { minimumFractionDigits: 2 });
       } else {
@@ -4538,6 +5288,11 @@
     });
 
     async function placeOrder() {
+      if (!currentStock) {
+        showToast('Load a stock from the backend catalog before placing an order.', 'warn');
+        return;
+      }
+
       const qty = parseInt(document.getElementById('trade-qty')?.value || 1, 10);
       if (isNaN(qty) || qty <= 0) { showToast('Enter a valid quantity', 'warn'); return; }
 
@@ -4580,31 +5335,19 @@
         price: finalPrice
       });
 
-      // 2. If backend unavailable or failed, run locally
-      if (!result || result.status !== 'success') {
-        const local = localExecuteTrade(currentStock.sym, finalTradeType, qty, finalPrice);
-        if (local.ok) result = { status: 'success', _local: true, pending: !!local.pending, new_balance: local.new_balance };
-        else result = local; // { ok: false, msg: ... }
-      }
-
       if (result && result.status === 'success') {
         const isPendingOrder = ['LIMIT_BUY', 'LIMIT_SELL', 'STOP_LOSS'].includes(finalTradeType);
         btn.textContent = isPendingOrder ? '\u2713 Queued!' : '\u2713 Executed!';
         btn.classList.add('executed');
 
         const total = (qty * finalPrice).toLocaleString('en-US', { minimumFractionDigits: 2 });
-        const suffix = result._local ? ' \u2022 offline mode' : '';
         const actionStr = finalTradeType.replace('_', ' ');
         const message = isPendingOrder
-          ? `${actionStr} queued for ${qty} \u00D7 ${currentStock.sym} @ $${finalPrice.toFixed(2)}${suffix}`
-          : `${actionStr} ${qty} \u00D7 ${currentStock.sym} @ $${finalPrice.toFixed(2)} =$${total}${suffix}`;
+          ? `${actionStr} queued for ${qty} \u00D7 ${currentStock.sym} @ $${finalPrice.toFixed(2)}`
+          : `${actionStr} ${qty} \u00D7 ${currentStock.sym} @ $${finalPrice.toFixed(2)} =$${total}`;
         showToast(message, 'success');
 
-        // Force state hydration from standard backend
-        if (!result._local) {
-          await syncPortfolio();
-        }
-
+        await syncPortfolio();
         updateDashSummary();
         if (currentPage === 'portfolio') await renderPendingOrders();
         if (currentPage === 'stock-detail') setTimeout(initStockDetail, 100);
@@ -4631,272 +5374,103 @@
     /* ================================================================
        AI PAGE
     ================================================================ */
-    function initAIPage() {
-      // Populate stock selector
+    async function initAIPage() {
+      if (!currentStock && STOCKS.length) currentStock = STOCKS[0];
+
       const select = document.getElementById('ai-stock-select');
+      if (!select) return;
+      if (!STOCKS.length || !currentStock) {
+        select.innerHTML = '<option value="">No backend stocks available</option>';
+        document.getElementById('ai-active-info').textContent = 'No stock loaded';
+        document.getElementById('ai-health-stats').innerHTML = `<div class="empty-state">Add a stock from the admin page to run AI analysis.</div>`;
+        document.getElementById('ai-forecast-table-rows').innerHTML = `<tr><td colspan="6"><div class="empty-state">Forecast output will appear here once a stock is available.</div></td></tr>`;
+        return;
+      }
+
       select.innerHTML = STOCKS.map(s => `<option value="${s.sym}" ${s.sym === currentStock.sym ? 'selected' : ''}>${s.sym} - ${s.name}</option>`).join('');
-
-      document.getElementById('ai-active-info').textContent = `${currentStock.sym} / ${aiModel}`;
-
-      // Model health stats
-      document.getElementById('ai-health-stats').innerHTML = `
-    <div class="flex-between text-xs mb-8"><span>MAE</span><span class="mono fw-700">0.0821</span></div>
-    <div class="flex-between text-xs mb-8"><span>RMSE</span><span class="mono fw-700">0.1245</span></div>
-    <div class="flex-between text-xs"><span>Precision</span><span class="mono fw-700 green">89.4%</span></div>
-  `;
-
-      drawAIChart();
-      runAIPrediction();
+      await runAIPrediction();
     }
 
-    function setAIModel(model, btn) {
+    async function setAIModel(model, btn) {
       aiModel = model;
       document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById('ai-active-info').textContent = `${currentStock.sym} / ${aiModel}`;
-
-      // Animate chart area (fade out → update → fade in)
-      const chartWrap = document.getElementById('aiChart')?.closest('.chart-container') || document.getElementById('aiChart')?.parentElement;
-      const tableBody = document.getElementById('ai-forecast-table-rows');
-
-      if (chartWrap) {
-        chartWrap.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-        chartWrap.style.opacity = '0';
-        chartWrap.style.transform = 'translateY(8px)';
-      }
-      if (tableBody) {
-        tableBody.style.transition = 'opacity 0.15s ease';
-        tableBody.style.opacity = '0';
-      }
-
-      setTimeout(() => {
-        runAIPrediction();
-        if (chartWrap) {
-          chartWrap.style.opacity = '1';
-          chartWrap.style.transform = 'translateY(0)';
-        }
-        if (tableBody) {
-          tableBody.style.opacity = '1';
-        }
-      }, 220);
+      await runAIPrediction();
     }
 
-    function seededRandom(seed) {
-      let x = Math.sin(seed) * 10000;
-      return x - Math.floor(x);
-    }
-
-    function renderAISummary(stock, horizon, confidenceScore, projectedPct) {
-      const activeModel = MODEL_DATA[aiModel] || MODEL_DATA.LSTM;
-      const signal = projectedPct >= 1.25 ? 'BUY' : projectedPct <= -1 ? 'SELL' : 'HOLD';
-
+    function renderAISummary(analysis) {
+      const signal = analysis.signal || 'HOLD';
       const signalBadge = document.getElementById('ai-signal-badge');
       if (signalBadge) {
         signalBadge.className = `signal-badge signal-${signal.toLowerCase()}`;
-        signalBadge.textContent = `${signal} · ${activeModel.name}`;
+        signalBadge.textContent = `${signal} · ${analysis.model}`;
       }
 
       const signalCopy = document.getElementById('ai-signal-copy');
-      if (signalCopy) {
-        const directionWord = projectedPct >= 0 ? 'higher' : 'lower';
-        signalCopy.textContent = `${stock.sym} is tracking ${Math.abs(projectedPct).toFixed(2)}% ${directionWord} over ${horizon} with ${confidenceScore}% confidence on the ${activeModel.desc.toLowerCase()} path.`;
-      }
+      if (signalCopy) signalCopy.textContent = analysis.summary || 'Backend analysis is warming up.';
 
       const backendStatus = document.getElementById('ai-backend-status');
       if (backendStatus) {
         backendStatus.className = `topbar-badge ${BACKEND_ONLINE ? 'badge-live' : 'badge-offline'}`;
-        backendStatus.textContent = BACKEND_ONLINE ? 'Backend synced' : 'Offline-ready mode';
+        backendStatus.textContent = BACKEND_ONLINE ? 'Backend synced' : 'Backend unreachable';
       }
 
       const modelRows = document.getElementById('ai-model-rows');
       if (modelRows) {
-        modelRows.innerHTML = Object.entries(MODEL_DATA).map(([modelName, meta], index) => {
-          const score = Math.max(48, Math.min(98, Math.round(confidenceScore + ((meta.conf - 80) * 0.4) + (modelName === aiModel ? 6 : 0) - index)));
-          const tone = score >= 75 ? 'green' : score >= 60 ? 'amber' : 'red';
+        modelRows.innerHTML = (analysis.model_scores || []).map((row, index) => {
+          const tone = row.score >= 75 ? 'green' : row.score >= 60 ? 'amber' : 'red';
           return `
-      <div class="model-result-row" style="animation-delay:${index * 0.05}s;">
-        <div class="model-result-name">${modelName}</div>
-        <div class="model-bar-track"><div class="model-bar-fill" data-width="${score}" style="width:0;background:${meta.color};"></div></div>
-        <div class="model-result-pct ${tone}">${score}%</div>
-      </div>
-    `;
+            <div class="model-result-row" style="animation-delay:${index * 0.05}s;">
+              <div class="model-result-name">${row.name}</div>
+              <div class="model-bar-track"><div class="model-bar-fill" data-width="${row.score}" style="width:0;background:${row.color};"></div></div>
+              <div class="model-result-pct ${tone}">${Math.round(row.score)}%</div>
+            </div>
+          `;
         }).join('');
       }
 
-      const reasons = [
-        `${stock.sym} momentum is ${stock.chgPct >= 0 ? 'still positive' : 'mixed'}, which ${signal === 'BUY' ? 'leans the model bullish' : signal === 'SELL' ? 'keeps downside risk elevated' : 'keeps the model measured'}.`,
-        `${activeModel.name} carries the strongest fit here, with a baseline lift of ${activeModel.pct.toFixed(2)}% in this demo configuration.`,
-        `${horizon} forecasts widen the confidence band, so the UI flags ${signal.toLowerCase()} instead of pretending the path is certain.`
-      ];
-
       const reasonsList = document.getElementById('ai-reasons-list');
       if (reasonsList) {
-        reasonsList.innerHTML = reasons.map((reason, index) => `
-      <div class="reason-item">
-        <div class="reason-icon">${['↗', '◌', '⚖'][index]}</div>
-        <div class="reason-text">${reason}</div>
-      </div>
-    `).join('');
+        reasonsList.innerHTML = (analysis.reasons || []).map((reason, index) => `
+          <div class="reason-item">
+            <div class="reason-icon">${['↗', '◌', '⚖'][index] || '•'}</div>
+            <div class="reason-text">${reason}</div>
+          </div>
+        `).join('');
       }
 
       animateModelBars();
     }
 
-    function runAIPrediction() {
-      const stockSym = document.getElementById('ai-stock-select').value;
-      currentStock = STOCKS.find(s => s.sym === stockSym);
-      const horizon = document.getElementById('ai-horizon-select').value;
-      const activeColor = MODEL_DATA[aiModel]?.color || '#7C5CFF';
-
-      // Update title
-      document.getElementById('ai-active-info').textContent = `${currentStock.sym} / ${aiModel} (${horizon})`;
-
-      // Generate a stable seed for the current stock and model
-      const baseSeed = stockSym.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const modelSeed = aiModel.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const combinedSeed = baseSeed + modelSeed;
-      const baseConfScore = 65 + (combinedSeed % 30); // Stable number between 65 and 94
-
-      // Update gauge
-      animateGauge(baseConfScore);
-
-      let totalDays = 7;
-      let step = 1;
-      if (horizon === '1M') { totalDays = 30; step = 3; }
-      else if (horizon === '3M') { totalDays = 90; step = 10; }
-      else if (horizon === '1Y') { totalDays = 365; step = 30; }
-
-      // Update table
-      const table = document.getElementById('ai-forecast-table-rows');
-      const dates = [];
-      const now = new Date();
-      for (let i = 1; i <= totalDays; i += step) {
-        const d = new Date(now);
-        d.setDate(d.getDate() + i);
-        dates.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-      }
-
-      const forecastRows = dates.map((d, i) => {
-        let stepSeed = combinedSeed + (i * 10.5);
-        const randA = seededRandom(stepSeed++);
-        const randB = seededRandom(stepSeed++);
-
-        const price = currentStock.price * (1 + (randA * 0.04) - 0.015);
-        const stepConf = Math.min(Math.max(baseConfScore - (i * 1.5) + (randB * 4 - 2), 40), 98);
-        const conf = Math.floor(stepConf);
-        const deltaPct = ((price / currentStock.price) - 1) * 100;
-        const signal = deltaPct >= 1 ? 'BUY' : deltaPct <= -1 ? 'SELL' : 'HOLD';
-        return {
-          date: d,
-          upper: price * 1.02,
-          lower: price * 0.98,
-          price,
-          conf,
-          signal
-        };
-      });
-
-      table.innerHTML = forecastRows.map(row => `
-      <tr>
-        <td class="fw-700">${row.date}</td>
-        <td class="mono">$${row.upper.toFixed(2)}</td>
-        <td class="mono">$${row.lower.toFixed(2)}</td>
-        <td class="mono fw-800 text-1">$${row.price.toFixed(2)}</td>
-        <td>
-          <div class="flex-center gap-8">
-            <div class="model-bar-track" style="width:40px;height:4px;"><div class="model-bar-fill" data-width="${row.conf}" style="width:0;background:${activeColor};"></div></div>
-            <span class="text-xs mono">${row.conf}%</span>
-          </div>
-        </td>
-        <td><span class="topbar-badge ${row.signal === 'BUY' ? 'badge-live' : row.signal === 'SELL' ? 'badge-sell' : 'badge-hold'}">${row.signal}</span></td>
-      </tr>
-    `).join('');
-
-      const finalProjectedPct = forecastRows.length
-        ? ((forecastRows[forecastRows.length - 1].price / currentStock.price) - 1) * 100
-        : 0;
-      renderAISummary(currentStock, horizon, baseConfScore, finalProjectedPct);
-
-      drawAIChart();
-    }
-
-    function drawAIChart() {
+    function drawAIChartFromPayload(analysis) {
       const ctx = document.getElementById('aiChart');
       if (!ctx) return;
       if (aiChart) aiChart.destroy();
 
-      const horizon = document.getElementById('ai-horizon-select').value;
-      let futureDays = 7;
-      if (horizon === '1M') futureDays = 30;
-      else if (horizon === '3M') futureDays = 90;
-      else if (horizon === '1Y') futureDays = 365;
+      const chart = analysis.chart || {};
+      if (!Array.isArray(chart.labels) || !chart.labels.length) return;
 
-      const pastDays = Math.max(14, Math.floor(futureDays * 0.5));
-
-      const labels = [];
-      const actual = [];
-      const predict = [];
-
-      // Create deterministic seeds
-      const baseSeed = currentStock.sym.split('').reduce((a, b) => a + b.charCodeAt(0), 0) * 1000;
-      const modelSeed = aiModel.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      let localSeed = baseSeed; // Only depends on stock!
-
-      // Backtest (Identical across all models for the same stock)
-      let p = currentStock.price;
-      const pastPrices = [p];
-      // Generate backwards from today's price
-      for (let i = 1; i <= pastDays; i++) {
-        p = p / (1 + (seededRandom(localSeed++) * 0.04 - 0.015));
-        pastPrices.unshift(p);
-      }
-
-      for (let i = pastDays; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i);
-        labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-      }
-
-      actual.push(...pastPrices);
-
-      // Predict line generally follows backtest roughly
-      for (let i = 0; i <= pastDays; i++) {
-        predict.push(actual[i] * (1 + (seededRandom(modelSeed + i) * 0.02 - 0.01)));
-      }
-
-      // Forecast (Diverges per model)
-      localSeed = baseSeed + modelSeed + 999;
-      let lastP = actual[actual.length - 1];
-      for (let i = 1; i <= futureDays; i++) {
-        const d = new Date(); d.setDate(d.getDate() + i);
-        labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        actual.push(null);
-        lastP = lastP * (1 + (seededRandom(localSeed++) * 0.05 - 0.02));
-        predict.push(lastP);
-      }
-
-      // Get active model color
-      const mColor = MODEL_DATA[aiModel] ? MODEL_DATA[aiModel].color : '#7C5CFF';
-
+      const mColor = analysis.model_color || MODEL_DATA[aiModel]?.color || '#7C5CFF';
       aiChart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels,
+          labels: chart.labels,
           datasets: [
             {
               label: 'Actual Price',
-              data: actual,
+              data: chart.actual,
               borderColor: '#1E2A78',
               borderWidth: 2.5,
-              tension: 0.4,
+              tension: 0.35,
               pointRadius: 0
             },
             {
-              label: `Predicted (${aiModel})`,
-              data: predict,
+              label: `Predicted (${analysis.model})`,
+              data: chart.predicted,
               borderColor: mColor,
               borderWidth: 2.5,
               borderDash: [5, 5],
-              tension: 0.4,
+              tension: 0.35,
               pointRadius: 0
             }
           ]
@@ -4917,11 +5491,66 @@
             }
           },
           scales: {
-            x: { grid: { display: false }, ticks: { maxTicksLimit: 7 } },
-            y: { grid: { color: 'rgba(30,42,120,0.04)' } }
+            x: {
+              grid: { display: false },
+              ticks: {
+                maxTicksLimit: 10,
+                maxRotation: 0,
+                color: '#7B8DB0',
+                font: { size: 11 }
+              }
+            },
+            y: {
+              grid: { color: 'rgba(30,42,120,0.04)' },
+              ticks: { color: '#7B8DB0', callback: v => '$' + v.toLocaleString(), font: { size: 11 } }
+            }
           }
         }
       });
+    }
+
+    async function runAIPrediction() {
+      const selector = document.getElementById('ai-stock-select');
+      if (!selector || !STOCKS.length) return;
+
+      const stockSym = selector.value;
+      currentStock = getStockBySymbol(stockSym);
+      if (!currentStock) return;
+      const horizon = document.getElementById('ai-horizon-select').value;
+
+      document.getElementById('ai-active-info').textContent = `${currentStock.sym} / ${aiModel} (${horizon})`;
+      const analysis = await apiGet(`/data/analysis/${stockSym}?model=${encodeURIComponent(aiModel)}&horizon=${encodeURIComponent(horizon)}`);
+      if (!analysis) {
+        document.getElementById('ai-health-stats').innerHTML = `<div class="empty-state">Could not load AI analysis from the backend.</div>`;
+        document.getElementById('ai-forecast-table-rows').innerHTML = `<tr><td colspan="6"><div class="empty-state">Backend analysis is unavailable right now.</div></td></tr>`;
+        return;
+      }
+
+      animateGauge(Number(analysis.confidence || analysis.ai_score || 50));
+      document.getElementById('ai-health-stats').innerHTML = `
+        <div class="flex-between text-xs mb-8"><span>MAE</span><span class="mono fw-700">${Number(analysis.health?.mae || 0).toFixed(4)}</span></div>
+        <div class="flex-between text-xs mb-8"><span>RMSE</span><span class="mono fw-700">${Number(analysis.health?.rmse || 0).toFixed(4)}</span></div>
+        <div class="flex-between text-xs"><span>Precision</span><span class="mono fw-700 green">${Number(analysis.health?.precision || 0).toFixed(1)}%</span></div>
+      `;
+
+      document.getElementById('ai-forecast-table-rows').innerHTML = (analysis.forecast_rows || []).map(row => `
+        <tr>
+          <td class="fw-700">${row.date}</td>
+          <td class="mono">$${Number(row.upper || 0).toFixed(2)}</td>
+          <td class="mono">$${Number(row.lower || 0).toFixed(2)}</td>
+          <td class="mono fw-800 text-1">$${Number(row.price || 0).toFixed(2)}</td>
+          <td>
+            <div class="flex-center gap-8">
+              <div class="model-bar-track" style="width:40px;height:4px;"><div class="model-bar-fill" data-width="${row.confidence || 0}" style="width:0;background:${analysis.model_color || '#7C5CFF'};"></div></div>
+              <span class="text-xs mono">${Math.round(Number(row.confidence || 0))}%</span>
+            </div>
+          </td>
+          <td><span class="topbar-badge ${row.signal === 'BUY' ? 'badge-live' : row.signal === 'SELL' ? 'badge-sell' : 'badge-hold'}">${row.signal}</span></td>
+        </tr>
+      `).join('');
+
+      renderAISummary(analysis);
+      drawAIChartFromPayload(analysis);
     }
 
     /* ================================================================
@@ -5050,26 +5679,7 @@
       if (!container) return;
 
       let remoteOrders = await apiGet('/portfolio/pending');
-      if (!Array.isArray(remoteOrders)) remoteOrders = [];
-
-      const localOrders = LOCAL_PENDING_ORDERS
-        .filter(order => order.status === 'PENDING')
-        .map(order => ({
-          id: order.id,
-          symbol: order.symbol,
-          type: order.type,
-          target: order.target_price,
-          quantity: order.quantity,
-          created_at: order.created_at
-        }));
-
-      const seen = new Set();
-      const orders = [...remoteOrders, ...localOrders].filter(order => {
-        const key = `${order.id || ''}-${order.symbol}-${order.type}-${order.target}-${order.quantity}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const orders = Array.isArray(remoteOrders) ? remoteOrders : [];
 
       if (!orders.length) {
         container.innerHTML = `<tr><td colspan="6" style="padding:20px;"><div class="empty-state">No pending orders right now.</div></td></tr>`;
@@ -5136,28 +5746,21 @@
         return;
       }
 
-      container.innerHTML = stocks.map(s => `
+      container.innerHTML = stocks.map(s => {
+        const ret6m = s.return6m != null ? `<span class="${s.return6m >= 0 ? 'green' : 'red'}">${s.return6m >= 0 ? '+' : ''}${s.return6m.toFixed(2)}%</span>` : '<span class="text-3">—</span>';
+        return `
     <tr onclick="openStock('${s.sym}')" style="cursor:pointer;">
       <td><div class="topbar-badge" style="background:var(--bg-3);">${s.sym}</div></td>
       <td class="fw-700">${s.name}</td>
       <td class="mono text-right fw-700">$${s.price.toFixed(2)}</td>
       <td class="mono text-right ${s.chgPct >= 0 ? 'green' : 'red'}">${s.chgPct >= 0 ? '+' : ''}${s.chgPct.toFixed(2)}%</td>
-      <td class="text-right text-3" style="font-size:0.75rem;">${formatMarketCap(s.sym)}</td>
-      <td class="text-right"><div class="score-pill" style="margin-left:auto; background:rgba(0,208,156,0.1); color:var(--neon-green);">${formatAIScore(s.sym)}</div></td>
+      <td class="text-right text-3" style="font-size:0.75rem;">${s.marketCap || 'N/A'}</td>
+      <td class="mono text-right">${ret6m}</td>
+      <td class="text-right"><div class="score-pill" style="margin-left:auto; background:rgba(0,208,156,0.1); color:var(--neon-green);">${Math.round(Number(s.aiScore || 50))}</div></td>
       <td class="text-right"><button class="btn btn-demo" style="width:auto;margin:0;padding:4px 12px;font-size:0.7rem;">Trade</button></td>
     </tr>
-  `).join('');
-    }
-
-    function formatMarketCap(symbol) {
-      const seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const raw = 120 + (seededRandom(seed + 17) * 1680);
-      return raw >= 1000 ? `$${(raw / 1000).toFixed(2)}T` : `$${raw.toFixed(0)}B`;
-    }
-
-    function formatAIScore(symbol) {
-      const seed = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 100);
-      return Math.round(72 + seededRandom(seed + 91) * 24);
+  `;
+      }).join('');
     }
 
     function showSectorToast(symbol, change) {
@@ -5177,9 +5780,8 @@
       const container = document.getElementById('txn-history-rows');
       if (!container) return;
 
-      // Try backend, fall back to local session log
       let txns = await apiGet('/portfolio/transactions');
-      if (!txns || txns.length === 0) txns = LOCAL_TXN_LOG;
+      if (!Array.isArray(txns)) txns = [];
 
       // Update profile header
       const balEl = document.getElementById('profile-balance');
@@ -5251,8 +5853,20 @@
         });
       });
 
-      // 4. Stay on dashboard (skip login)
-      setTimeout(() => navigate('dashboard'), 1500);
+      // 4. Load data then transition
+      (async () => {
+        // Minimum splash screen duration for visual consistency
+        const minSplashTime = new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Fetch all essential data from the backend concurrently
+        const dataFetch = Promise.all([
+          syncLivePrices(),
+          syncPortfolio()
+        ]);
+        
+        await Promise.all([minSplashTime, dataFetch]);
+        navigate('dashboard');
+      })();
     });
 
     /* Magnetic button effect */

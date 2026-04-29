@@ -39,10 +39,9 @@ class ArimaSVMModel(BaseModel):
 
     def train(self, X: np.ndarray, y: np.ndarray) -> dict:
         """
-        X: 1D or 2D array of price series (uses only the Close column if 2D)
-        y: target next-day prices (used for residual evaluation)
+        X: 3D array (samples, timesteps, features)
+        y: target next-day prices
         """
-        # Flatten to 1D price series for ARIMA
         series = y if y.ndim == 1 else y[:, 0]
 
         logger.info("Fitting ARIMA (auto order selection)...")
@@ -60,66 +59,87 @@ class ArimaSVMModel(BaseModel):
         arima_preds = self.arima.fittedvalues
         residuals = series - arima_preds
 
-        # Train SVM on residuals
-        logger.info("Training SVM on ARIMA residuals...")
-        res_features = self._build_residual_features(residuals)
-        res_targets = residuals[len(residuals) - len(res_features) :]
+        # Train SVM on exogenous features (last timestep of each sequence) + lag-1 residual
+        logger.info("Training SVM on exogenous features and ARIMA residuals...")
+        X_last_step = X[:, -1, :] if X.ndim == 3 else X
+        
+        # We need lag-1 residual for each sample. 
+        # Shift residuals by 1 to get lag-1. We drop the first sample.
+        lag_1_residuals = residuals[:-1].reshape(-1, 1)
+        res_targets = residuals[1:]
+        X_exogenous = X_last_step[1:]
+        
+        # Combine exogenous features with lag-1 residuals
+        svm_features = np.hstack((X_exogenous, lag_1_residuals))
 
-        res_features_scaled = self.svm_scaler.fit_transform(
-            res_features.reshape(-1, 1)
-        )
-        self.svm.fit(res_features_scaled, res_targets)
+        svm_features_scaled = self.svm_scaler.fit_transform(svm_features)
+        self.svm.fit(svm_features_scaled, res_targets)
 
         # Compute training metrics
-        final_preds = arima_preds[len(arima_preds) - len(series) :] + residuals
-        mae = float(np.mean(np.abs(series - final_preds)))
-        rmse = float(np.sqrt(np.mean((series - final_preds) ** 2)))
+        svm_pred_residuals = self.svm.predict(svm_features_scaled)
+        final_preds = arima_preds[1:] + svm_pred_residuals
+        
+        mae = float(np.mean(np.abs(series[1:] - final_preds)))
+        rmse = float(np.sqrt(np.mean((series[1:] - final_preds) ** 2)))
         logger.info(f"ARIMA-SVM trained | MAE={mae:.4f}, RMSE={rmse:.4f}")
+        
+        # Save last known residual for live prediction
+        self._last_residual = residuals[-1]
         return {"mae": mae, "rmse": rmse}
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Predict next-step values for each input step."""
+        """Predict next-step values using ARIMA + SVM."""
         if not self._arima_fitted:
             raise RuntimeError("Model not trained. Call train() first.")
 
         steps = len(X) if X.ndim == 1 else X.shape[0]
-        arima_forecasts = self.arima.forecast(steps=steps)
+        arima_forecasts = self.arima.forecast(steps=steps).values
 
-        # Predict residuals using SVM
-        dummy_res = np.zeros(steps)
-        dummy_scaled = self.svm_scaler.transform(dummy_res.reshape(-1, 1))
-        svm_corrections = self.svm.predict(dummy_scaled)
+        # Build feature vector for SVM using X and last known residual
+        X_last_step = X[:, -1, :] if X.ndim == 3 else X
+        svm_corrections = []
+        
+        current_residual = getattr(self, "_last_residual", 0.0)
+        
+        for i in range(steps):
+            exog = X_last_step[i].reshape(1, -1)
+            feat = np.hstack((exog, [[current_residual]]))
+            feat_scaled = self.svm_scaler.transform(feat)
+            
+            # Predict next residual
+            pred_res = self.svm.predict(feat_scaled)[0]
+            svm_corrections.append(pred_res)
+            
+            # Autoregressive update for the next step
+            current_residual = pred_res
 
-        return arima_forecasts + svm_corrections
+        return arima_forecasts + np.array(svm_corrections)
 
     def save(self, path: str) -> None:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as f:
-            pickle.dump(
-                {
-                    "arima_order": self.arima_order,
-                    "arima_params": self.arima.params if self.arima else None,
-                    "svm": self.svm,
-                    "svm_scaler": self.svm_scaler,
-                },
-                f,
-            )
+        import joblib
+        dir_name = os.path.dirname(path)
+        if dir_name:
+            os.makedirs(dir_name, exist_ok=True)
+        # Using joblib for efficient sci-kit learn model saving
+        joblib.dump(
+            {
+                "arima_order": self.arima_order,
+                "arima": self.arima,
+                "svm": self.svm,
+                "svm_scaler": self.svm_scaler,
+                "last_residual": getattr(self, "_last_residual", 0.0)
+            },
+            path,
+        )
         logger.info(f"ArimaSVMModel saved to {path}")
 
     def load(self, path: str) -> None:
-        with open(path, "rb") as f:
-            data = pickle.load(f)
+        import joblib
+        data = joblib.load(path)
         self.arima_order = data["arima_order"]
+        self.arima = data.get("arima")
         self.svm = data["svm"]
         self.svm_scaler = data["svm_scaler"]
+        self._last_residual = data.get("last_residual", 0.0)
         self._arima_fitted = True
         logger.info(f"ArimaSVMModel loaded from {path}")
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _build_residual_features(residuals: np.ndarray) -> np.ndarray:
-        """Create lag-1 feature array from residuals."""
-        return residuals[:-1]

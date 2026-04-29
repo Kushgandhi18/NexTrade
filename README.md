@@ -31,6 +31,8 @@ Frontend (Dashboard) → FastAPI Gateway → [ Data Service | Model Service | Pr
 - **Race Condition Immunity**: Implemented strict row-level execution locks via SQLAlchemy's `with_for_update(skip_locked=True)`, protecting the database ledgers against concurrent worker race-conditions.
 - **Graceful Task Termination**: The backend startup sequence explicitly awaits and swallows `asyncio.CancelledError` on teardown logic, guaranteeing DB sessions disconnect gracefully with no broken pipes during ECS cluster scale-downs.
 - **Offline Client Hydration**: The Javascript frontend intercepts failed network responses transparently and switches to utilizing `localStorage` caching mechanics to orchestrate trades entirely offline if the AWS cluster is unreachable.
+- **Upstream Rate-Limit Resilience**: The Yahoo Finance ETL integration intercepts HTTP 429 Too Many Requests errors and falls back to proxy metadata/placeholders, allowing admin stock ingestion to proceed. The background worker seamlessly hydrates the exact data on subsequent loops once rate limits naturally expire.
+- **Dynamic Asynchronous Boot**: The vanilla JS frontend defers the splash screen teardown until all mission-critical telemetry and portfolio metadata is resolved, explicitly eliminating transient blank UI states on cold boots.
 
 ---
 
@@ -150,7 +152,7 @@ stock_prediction/
 | DB | PostgreSQL (SQLAlchemy) |
 | Cache | Redis |
 | DevOps | Docker, GitHub Actions |
-| Frontend | Vanilla HTML/JS, Chart.js |
+| Frontend | Vanilla HTML/JS, CSS, Chart.js |
 
 ---
 

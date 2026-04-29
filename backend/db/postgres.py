@@ -4,6 +4,7 @@ PostgreSQL database models and connection via SQLAlchemy async.
 Tables: stocks_data, predictions, model_metrics
 """
 
+import hashlib
 import os
 from datetime import datetime
 from sqlalchemy import (
@@ -114,6 +115,14 @@ DEFAULT_STOCK_PROFILES = [
     },
 ]
 
+DEFAULT_INDEX_PROFILES = [
+    {"symbol": "^IXIC", "name": "Nasdaq", "display_order": 1},
+    {"symbol": "^DJI", "name": "Dow 30", "display_order": 2},
+    {"symbol": "^GSPC", "name": "S&P 500", "display_order": 3},
+    {"symbol": "GC=F", "name": "Gold", "display_order": 4},
+    {"symbol": "BTC-USD", "name": "Bitcoin", "display_order": 5},
+]
+
 
 # ------------------------------------------------------------------
 # Table Models
@@ -206,6 +215,90 @@ class StockProfile(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class StockNewsItem(Base):
+    """Cached Yahoo Finance news associated with a tracked stock."""
+    __tablename__ = "stock_news_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), nullable=False, index=True)
+    external_id = Column(String(255), nullable=True, unique=True, index=True)
+    title = Column(String(400), nullable=False)
+    publisher = Column(String(160), nullable=True)
+    summary = Column(Text, nullable=True)
+    link = Column(Text, nullable=True)
+    image_url = Column(Text, nullable=True)
+    published_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_stock_news_symbol_published", "symbol", "published_at"),
+    )
+
+
+class MarketIndexSnapshot(Base):
+    """Cached market index and macro instrument values shown on the dashboard."""
+    __tablename__ = "market_index_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(20), nullable=False, unique=True, index=True)
+    name = Column(String(120), nullable=False)
+    display_order = Column(Integer, default=0)
+    value = Column(Float, nullable=False, default=0.0)
+    previous_close = Column(Float, nullable=True)
+    change = Column(Float, nullable=False, default=0.0)
+    change_pct = Column(Float, nullable=False, default=0.0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class StockInsightSnapshot(Base):
+    """Cached AI/analytics payload used by the stock detail and AI pages."""
+    __tablename__ = "stock_insight_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), nullable=False, unique=True, index=True)
+    active_model = Column(String(50), nullable=False, default="Ensemble")
+    horizon = Column(String(10), nullable=False, default="1M")
+    signal = Column(String(10), nullable=False, default="HOLD")
+    confidence = Column(Float, nullable=False, default=50.0)
+    projected_pct = Column(Float, nullable=False, default=0.0)
+    target_price = Column(Float, nullable=False, default=0.0)
+    ai_score = Column(Float, nullable=False, default=50.0)
+    payload_json = Column(Text, nullable=False, default="{}")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdminUser(Base):
+    """Simple admin user for protecting the admin console."""
+    __tablename__ = "admin_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(80), nullable=False, unique=True, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(30), nullable=False, default="admin")
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdminSession(Base):
+    """Persisted admin session token so auth remains backend-driven."""
+    __tablename__ = "admin_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(255), nullable=False, unique=True, index=True)
+    admin_user_id = Column(Integer, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("ix_admin_sessions_user_expiry", "admin_user_id", "expires_at"),
+    )
+
+
 class Profile(Base):
     """User profile and balance."""
     __tablename__ = "profiles"
@@ -263,11 +356,14 @@ class PendingOrder(Base):
 # Utilities
 # ------------------------------------------------------------------
 
+def _hash_admin_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
 def init_db():
     """Create all tables if they don't exist."""
     Base.metadata.create_all(bind=engine)
-    
-    # Initialize demo profile if empty
+
     db = SessionLocal()
     try:
         if not db.query(Profile).first():
@@ -279,6 +375,30 @@ def init_db():
         missing_defaults = [item for item in DEFAULT_STOCK_PROFILES if item["symbol"] not in existing_symbols]
         if missing_defaults:
             db.add_all(StockProfile(**item) for item in missing_defaults)
+            db.commit()
+
+        existing_indices = {symbol for (symbol,) in db.query(MarketIndexSnapshot.symbol).all()}
+        missing_indices = [item for item in DEFAULT_INDEX_PROFILES if item["symbol"] not in existing_indices]
+        if missing_indices:
+            db.add_all(MarketIndexSnapshot(**item) for item in missing_indices)
+            db.commit()
+
+        admin_username = os.environ.get("ADMIN_USERNAME", "admin").strip() or "admin"
+        admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+        existing_admin = (
+            db.query(AdminUser)
+            .filter(AdminUser.username == admin_username)
+            .first()
+        )
+        if not existing_admin:
+            db.add(
+                AdminUser(
+                    username=admin_username,
+                    password_hash=_hash_admin_password(admin_password),
+                    role="admin",
+                    is_active=True,
+                )
+            )
             db.commit()
     except Exception:
         pass
