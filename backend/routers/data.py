@@ -10,7 +10,7 @@ from statistics import mean, pstdev
 from typing import Any
 
 import yfinance as yf
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from backend.db.postgres import (
@@ -1105,6 +1105,17 @@ def _build_dashboard_payload(db: Session, stocks: list[StockProfile]) -> dict[st
 
 
 
+def _full_stock_sync(symbol: str) -> None:
+    """Entry point for BackgroundTasks to refresh a specific stock."""
+    db = SessionLocal()
+    try:
+        stock = db.query(StockProfile).filter(StockProfile.symbol == symbol).first()
+        if stock:
+            _refresh_one_stock(db, stock)
+    finally:
+        db.close()
+
+
 def _refresh_one_stock(db: Session, stock: StockProfile) -> None:
     """Fetch all data for a single stock — used by the staggered background loop."""
     try:
@@ -1219,8 +1230,14 @@ def download_stocks_csv(db: Session = Depends(get_db)):
 
 
 @router.get("/stocks")
-def get_stocks(db: Session = Depends(get_db)):
+def get_stocks(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     stocks = _get_active_stocks(db)
+    
+    # Check for missing/stale data and queue background refreshes
+    stale_symbols = [s.symbol for s in stocks if _is_stale(s.updated_at, 3600) or s.price == 0]
+    for sym in stale_symbols[:2]: # Only queue 2 at a time to prevent server lag
+        background_tasks.add_task(_full_stock_sync, sym)
+
     # Serve from DB — background sync loop keeps data fresh
     symbols = [stock.symbol for stock in stocks]
     insights = {
@@ -1253,7 +1270,7 @@ def get_dashboard(db: Session = Depends(get_db)):
 
 
 @router.get("/fundamentals/{symbol}")
-def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
+def get_fundamentals(symbol: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     symbol = symbol.strip().upper()
     stock = (
         db.query(StockProfile)
@@ -1264,20 +1281,15 @@ def get_fundamentals(symbol: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Fundamentals not found for this symbol")
 
     history = _load_daily_rows(db, symbol)
-    if not history or not stock.market_cap:
-        ticker = None
-        try:
-            ticker = yf.Ticker(symbol)
-        except Exception as exc:
-            logger.warning("Ticker bootstrap failed for %s: %s", symbol, exc)
+    
+    # If the data is missing or stale, refresh it in the background
+    is_data_missing = not history or not stock.market_cap or not stock.sector
+    if is_data_missing or _is_stale(stock.updated_at, 3600):
+        background_tasks.add_task(_full_stock_sync, symbol)
 
-        _refresh_stock_snapshot(stock, ticker)
-        _refresh_stock_metadata(stock, ticker)
-        history = _refresh_stock_history(db, stock, ticker)
-        db.commit()
-        db.refresh(stock)
-        
-    return _serialize_stock_fundamentals(stock, history)
+    # Convert rows to just the close prices for the return calculation
+    history_prices = [round(row.close, 2) for row in history if row.close is not None]
+    return _serialize_stock_fundamentals(stock, history_prices)
 
 
 @router.get("/news/{symbol}")
