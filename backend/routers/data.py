@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data", tags=["Data IO"])
 
 MARKET_SYNC_INTERVAL_SECONDS = max(60, int(os.environ.get("MARKET_SYNC_INTERVAL_SECONDS", "300")))
-INDEX_SYNC_STALE_SECONDS = max(30, int(os.environ.get("INDEX_SYNC_STALE_SECONDS", "60")))
+INDEX_SYNC_STALE_SECONDS = max(60, int(os.environ.get("INDEX_SYNC_STALE_SECONDS", "300")))
 NEWS_SYNC_STALE_SECONDS = max(120, int(os.environ.get("NEWS_SYNC_STALE_SECONDS", "1800")))
 INSIGHT_SYNC_STALE_SECONDS = max(120, int(os.environ.get("INSIGHT_SYNC_STALE_SECONDS", "900")))
 

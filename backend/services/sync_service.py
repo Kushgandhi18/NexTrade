@@ -1,4 +1,5 @@
 import logging
+import time
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
@@ -29,15 +30,19 @@ def full_stock_sync(db: Session, symbol: str) -> None:
         
         # 1. Update basic price snapshot
         _refresh_stock_snapshot(stock, ticker)
+        time.sleep(0.5) # Breathe
         
         # 2. Update metadata (Sector, Industry, CEO, etc.)
         _refresh_stock_metadata(stock, ticker)
+        time.sleep(1.0) # Breathe
         
         # 3. Update History (Charts)
         _refresh_stock_history(db, stock, ticker)
+        time.sleep(1.5) # Breathe
         
         # 4. Update News
         _refresh_stock_news(db, stock, ticker)
+        time.sleep(1.0) # Breathe
         
         # 5. Update Financials (Revenue & Profit)
         _refresh_stock_financials(db, stock, ticker)
