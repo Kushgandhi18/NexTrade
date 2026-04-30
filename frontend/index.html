@@ -3845,7 +3845,8 @@
           finalHeaders['Content-Type'] = 'application/json';
           options.body = JSON.stringify(body);
         }
-        const res = await fetch(`http://localhost:8000${path}`, options);
+        const API_BASE_URL = "http://18.223.97.112:8000";
+        const res = await fetch(`${API_BASE_URL}${path}`, options);
         BACKEND_ONLINE = true;
         const payload = await res.json().catch(() => null);
         return {
