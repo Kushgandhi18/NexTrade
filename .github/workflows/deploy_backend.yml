@@ -22,11 +22,23 @@ jobs:
           SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
           # 1. Clean and Decode the base64 secret
+          echo "Decoding SSH key..."
           echo "$SSH_KEY_B64" | tr -d '[:space:]' | base64 -d > deploy_key.pem
-          chmod 600 deploy_key.pem
           
-          # 2. Run the deployment commands
-          ssh -i deploy_key.pem -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
+          # 2. Verify the key file
+          echo "Key file size: $(wc -c < deploy_key.pem) bytes"
+          echo "Key file format check:"
+          head -1 deploy_key.pem
+          tail -1 deploy_key.pem
+          
+          chmod 600 deploy_key.pem
+          echo "Permissions set to 600"
+          
+          # 3. Verify key is valid before using
+          ssh-keygen -l -f deploy_key.pem || { echo "ERROR: Invalid SSH key!"; exit 1; }
+          
+          # 4. Run the deployment commands
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no -vvv $SSH_USER@$SSH_HOST << 'EOF'
             cd ~/NexTrade
             git pull origin main
             docker compose up -d --build backend
