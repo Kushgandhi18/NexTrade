@@ -1,5 +1,7 @@
 # NexTrade — AI Stock Prediction System
 
+[![Deploy Backend to AWS](https://github.com/Kushgandhi18/NexTrade/workflows/Deploy%20Backend%20to%20AWS/badge.svg)](https://github.com/Kushgandhi18/NexTrade/actions)
+
 > End-to-end ML system for stock price prediction using LSTM, GRU, Transformer, ARIMA-SVM, and Ensemble models.
 
 ---

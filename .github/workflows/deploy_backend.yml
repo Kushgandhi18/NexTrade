@@ -43,4 +43,9 @@ jobs:
             git pull origin main
             docker compose up -d --build backend
             docker system prune -f
+            echo "✓ Backend deployed successfully!"
+            docker ps | grep backend
           EOF
+
+      - name: Deployment Success ✅
+        run: echo "Backend deployed to ${{ secrets.EC2_HOST }} at $(date)"
