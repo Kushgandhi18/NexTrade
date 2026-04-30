@@ -35,17 +35,9 @@ jobs:
             git pull origin main
             docker compose up -d --build backend
             docker system prune -f
-            
-            # Run the database patch safely (Properly Indented)
-            echo "Running DB migration..."
-            docker exec nextrade-backend-1 python -c "
-            from sqlalchemy import text
-            from backend.db.postgres import engine
-            with engine.connect() as conn:
-                conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS revenue FLOAT;'))
-                conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS net_income FLOAT;'))
-                conn.execute(text('CREATE TABLE IF NOT EXISTS stock_financials (id SERIAL PRIMARY KEY, symbol VARCHAR(10), period_label VARCHAR(20), date TIMESTAMP, revenue FLOAT, net_income FLOAT, is_quarterly BOOLEAN DEFAULT TRUE);'))
-                conn.execute(text('CREATE INDEX IF NOT EXISTS idx_stock_financials_symbol ON stock_financials(symbol);'))
-                conn.commit()
-            print('✓ Database patched!')"
+            echo "✓ Backend deployed successfully!"
+            docker ps | grep backend
           EOF
+
+      - name: Deployment Complete ✅
+        run: echo "Backend deployed to ${{ secrets.EC2_HOST }} on $(date)"
