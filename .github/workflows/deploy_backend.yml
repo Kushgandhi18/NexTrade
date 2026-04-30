@@ -36,6 +36,19 @@ jobs:
             docker compose up -d --build backend
             docker system prune -f
             echo "✓ Backend deployed successfully!"
+            
+            # Run the database patch for new columns
+            echo "Running DB patch..."
+            docker exec nextrade-backend-1 python -c "
+from sqlalchemy import text
+from backend.db.postgres import engine
+with engine.connect() as conn:
+    conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS revenue FLOAT;'))
+    conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS net_income FLOAT;'))
+    conn.commit()
+print('✓ Database patched!')
+            "
+            
             docker ps | grep backend
           EOF
 
