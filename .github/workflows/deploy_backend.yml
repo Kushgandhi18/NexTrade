@@ -19,7 +19,8 @@ jobs:
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.EC2_SSH_KEY }}
-          known_hosts: ${{ secrets.EC2_KNOWN_HOSTS }}
+          known_hosts: |
+            github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj3QGmbjvB8efL1nZ7/ZkP92o2DPQbVe2ly8tsrFOMUvzjX4MyQ6sl7AT8w8Jlouk901578MRQeu2lBNGWzvQ+YcMGagkxQeXFmpO00Qs5/Nw3K5+FvjlwGWC5N5sK2RYwFMt6VHXDvyWhw2QwqZHVMLXRGUREVVc34RZ5w4nN3GDt57wdzUsQXRXyVf0JBkZHpF0JV/DXVqZt+Wp/qXQKZyuvapwjYjlS9KWkCmt37EQsZ7JwFWO84qmZI2g7eIJHWy5GwVvsapKZ7XwXXV7p9WEsKZXWJvRs5YvGtnUtPNyYPrzqP8s58LFPQYqTlyEqQAh8b+T0/c0RMQ==
           config: |
             Host ec2
               HostName ${{ secrets.EC2_HOST }}
