@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Any
 from sqlalchemy.orm import Session
-from backend.db.postgres import StockProfile, StockData, StockNewsItem, StockInsightSnapshot, Prediction, ModelMetrics
+from backend.db.postgres import StockProfile, StockData, StockNewsItem, StockInsightSnapshot, Prediction, ModelMetrics, StockFinancial
 from backend.services.inference_pipeline import run_training_pipeline
 
 logger = logging.getLogger(__name__)
@@ -127,20 +127,44 @@ def _refresh_stock_financials(db: Session, stock: StockProfile, ticker: Any) -> 
         # Fetch quarterly financials
         fin = ticker.quarterly_financials
         if fin is None or fin.empty:
-            fin = ticker.financials # Fallback to annual if quarterly is missing
+            fin = ticker.financials # Fallback to annual
             
         if fin is not None and not fin.empty:
-            # We store the financials in the StockProfile as a JSON blob or similar? 
-            # Actually, the frontend expects a specific structure. 
-            # I will ensure the StockProfile has the latest values.
-            
-            # Extract Revenue and Net Income
-            # These are usually the first few rows of the income statement
+            # yfinance returns metrics as index, dates as columns
             revenue_row = fin.loc['Total Revenue'] if 'Total Revenue' in fin.index else None
             profit_row = fin.loc['Net Income'] if 'Net Income' in fin.index else None
             
+            # Save the 4 most recent periods
+            cols = fin.columns[:4]
+            for col in cols:
+                dt = col.to_pydatetime().replace(tzinfo=None)
+                # Label like "Q1 2024" or just the year
+                label = f"Q{ (dt.month-1)//3 + 1 } {dt.year}"
+                
+                rev_val = _safe_float(revenue_row[col]) if revenue_row is not None else None
+                prof_val = _safe_float(profit_row[col]) if profit_row is not None else None
+                
+                # Simple upsert
+                existing = db.query(StockFinancial).filter(
+                    StockFinancial.symbol == stock.symbol,
+                    StockFinancial.date == dt
+                ).first()
+                
+                if not existing:
+                    db.add(StockFinancial(
+                        symbol=stock.symbol,
+                        date=dt,
+                        period_label=label,
+                        revenue=rev_val,
+                        net_income=prof_val,
+                        is_quarterly=True
+                    ))
+                else:
+                    existing.revenue = rev_val
+                    existing.net_income = prof_val
+                    
+            # Update summary fields on StockProfile too
             if revenue_row is not None:
-                # Take the most recent value
                 stock.revenue = _safe_float(revenue_row.iloc[0])
             if profit_row is not None:
                 stock.net_income = _safe_float(profit_row.iloc[0])

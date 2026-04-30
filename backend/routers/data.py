@@ -1407,95 +1407,30 @@ def get_stock_analysis(
 
 @router.get("/financials/{symbol}")
 def get_stock_financials(symbol: str, db: Session = Depends(get_db)):
-    """Return quarterly and annual revenue + net income for bar charts."""
+    """Return quarterly revenue + net income from persistent database."""
     normalized_symbol = symbol.strip().upper()
-    stock = (
-        db.query(StockProfile)
-        .filter(StockProfile.symbol == normalized_symbol, StockProfile.is_active.is_(True))
-        .first()
+    
+    f_data = (
+        db.query(StockFinancial)
+        .filter(StockFinancial.symbol == normalized_symbol)
+        .order_by(StockFinancial.date.asc())
+        .all()
     )
-    if not stock:
-        raise HTTPException(status_code=404, detail="Financials not found for this symbol")
+    
+    revenue_rows = []
+    profit_rows = []
+    
+    for item in f_data:
+        rev_val = (item.revenue / 1e9) if item.revenue else 0
+        prof_val = (item.net_income / 1e9) if item.net_income else 0
+        revenue_rows.append({"label": item.period_label, "value": round(rev_val, 2)})
+        profit_rows.append({"label": item.period_label, "value": round(prof_val, 2)})
 
-    try:
-        ticker = yf.Ticker(normalized_symbol)
-
-        def _parse_fin_df(df, key: str, label_fmt: str) -> list[dict[str, Any]]:
-            """Extract rows from yfinance financials DataFrame."""
-            rows = []
-            if df is None or df.empty:
-                return rows
-            # yfinance returns metrics as index, dates as columns
-            if key not in df.index:
-                return rows
-            series = df.loc[key]
-            for col in reversed(series.index):  # oldest first
-                val = series[col]
-                if val is None or (hasattr(val, '__class__') and val.__class__.__name__ == 'NaT'):
-                    continue
-                try:
-                    v = float(val)
-                except (TypeError, ValueError):
-                    continue
-                if v == 0 or v != v:  # skip zero and NaN
-                    continue
-                try:
-                    if hasattr(col, 'strftime'):
-                        label = col.strftime(label_fmt)
-                    else:
-                        label = str(col)[:10]
-                except Exception:
-                    label = str(col)[:10]
-                rows.append({"label": label, "value": round(v / 1e9, 3)})  # in billions
-            return rows
-
-        def _find_key(df, candidates: list[str]) -> str | None:
-            """Find the first matching key in the DataFrame index."""
-            if df is None or df.empty:
-                return None
-            for k in candidates:
-                if k in df.index:
-                    return k
-            return None
-
-        # Quarterly financials — try multiple data sources and key aliases
-        qfin = getattr(ticker, "quarterly_financials", None)
-        if qfin is None or qfin.empty:
-            qfin = getattr(ticker, "quarterly_income_stmt", None)
-
-        rev_key = _find_key(qfin, ["Total Revenue", "Revenue", "TotalRevenue", "TotalRevenues"])
-        inc_key = _find_key(qfin, ["Net Income", "NetIncome", "NetIncomeCommonStockholders"])
-        quarterly_revenue = _parse_fin_df(qfin, rev_key, "%b '%y") if rev_key else []
-        quarterly_profit = _parse_fin_df(qfin, inc_key, "%b '%y") if inc_key else []
-
-        # Annual financials
-        afin = getattr(ticker, "financials", None)
-        if afin is None or afin.empty:
-            afin = getattr(ticker, "income_stmt", None)
-
-        a_rev_key = _find_key(afin, ["Total Revenue", "Revenue", "TotalRevenue", "TotalRevenues"])
-        a_inc_key = _find_key(afin, ["Net Income", "NetIncome", "NetIncomeCommonStockholders"])
-        annual_revenue = _parse_fin_df(afin, a_rev_key, "%Y") if a_rev_key else []
-        annual_profit = _parse_fin_df(afin, a_inc_key, "%Y") if a_inc_key else []
-
-        return {
-            "symbol": normalized_symbol,
-            "quarterly": {
-                "revenue": quarterly_revenue[-8:],   # last 8 quarters
-                "profit": quarterly_profit[-8:],
-            },
-            "annual": {
-                "revenue": annual_revenue[-5:],      # last 5 years
-                "profit": annual_profit[-5:],
-            },
-        }
-    except Exception as exc:
-        logger.warning("Financials fetch failed for %s: %s", normalized_symbol, exc)
-        return {
-            "symbol": normalized_symbol,
-            "quarterly": {"revenue": [], "profit": []},
-            "annual": {"revenue": [], "profit": []},
-        }
+    return {
+        "symbol": normalized_symbol,
+        "revenue": revenue_rows,
+        "profit": profit_rows
+    }
 
 
 @router.get("/chart/{symbol}")

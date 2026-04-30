@@ -217,6 +217,19 @@ class StockProfile(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class StockFinancial(Base):
+    """Quarterly or annual financial metrics for bar charts."""
+    __tablename__ = "stock_financials"
+
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String(10), nullable=False, index=True)
+    period_label = Column(String(20), nullable=False) # e.g. "Q1 2024"
+    date = Column(DateTime, nullable=False)
+    revenue = Column(Float, nullable=True)
+    net_income = Column(Float, nullable=True)
+    is_quarterly = Column(Boolean, default=True)
+
+
 class StockNewsItem(Base):
     """Cached Yahoo Finance news associated with a tracked stock."""
     __tablename__ = "stock_news_items"
