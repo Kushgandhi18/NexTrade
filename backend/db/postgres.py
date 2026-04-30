@@ -210,6 +210,8 @@ class StockProfile(Base):
     previous_close = Column(Float, nullable=True)
     change = Column(Float, nullable=False, default=0.0)
     change_pct = Column(Float, nullable=False, default=0.0)
+    revenue = Column(Float, nullable=True)
+    net_income = Column(Float, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

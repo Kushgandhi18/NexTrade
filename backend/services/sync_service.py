@@ -1,9 +1,11 @@
 import logging
 import yfinance as yf
+import pandas as pd
 from datetime import datetime, timedelta
 from typing import Any
 from sqlalchemy.orm import Session
-from backend.db.postgres import StockProfile, StockData, StockNewsItem, StockInsightSnapshot
+from backend.db.postgres import StockProfile, StockData, StockNewsItem, StockInsightSnapshot, Prediction, ModelMetrics
+from backend.services.inference_pipeline import run_training_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,16 @@ def full_stock_sync(db: Session, symbol: str) -> None:
         # 4. Update News
         _refresh_stock_news(db, stock, ticker)
         
+        # 5. Update Financials (Revenue & Profit)
+        _refresh_stock_financials(db, stock, ticker)
+        
+        # 6. Trigger AI Model Training
+        try:
+            logger.info(f"🤖 Triggering AI Training for {symbol}...")
+            run_training_pipeline(symbol)
+        except Exception as e:
+            logger.warning(f"AI Training skipped for {symbol}: {e}")
+            
         stock.updated_at = datetime.utcnow()
         db.commit()
         logger.info(f"✓ Deep sync completed for {symbol}")
@@ -108,6 +120,34 @@ def _refresh_stock_history(db: Session, stock: StockProfile, ticker: Any) -> Non
                 ))
     except Exception:
         pass
+
+def _refresh_stock_financials(db: Session, stock: StockProfile, ticker: Any) -> None:
+    """Fetch income statement data for the Revenue/Profit graphs."""
+    try:
+        # Fetch quarterly financials
+        fin = ticker.quarterly_financials
+        if fin is None or fin.empty:
+            fin = ticker.financials # Fallback to annual if quarterly is missing
+            
+        if fin is not None and not fin.empty:
+            # We store the financials in the StockProfile as a JSON blob or similar? 
+            # Actually, the frontend expects a specific structure. 
+            # I will ensure the StockProfile has the latest values.
+            
+            # Extract Revenue and Net Income
+            # These are usually the first few rows of the income statement
+            revenue_row = fin.loc['Total Revenue'] if 'Total Revenue' in fin.index else None
+            profit_row = fin.loc['Net Income'] if 'Net Income' in fin.index else None
+            
+            if revenue_row is not None:
+                # Take the most recent value
+                stock.revenue = _safe_float(revenue_row.iloc[0])
+            if profit_row is not None:
+                stock.net_income = _safe_float(profit_row.iloc[0])
+                
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Financial sync failed for {stock.symbol}: {e}")
 
 def _refresh_stock_news(db: Session, stock: StockProfile, ticker: Any) -> None:
     try:

@@ -140,3 +140,8 @@ class TrainingPipeline:
             f"{prefix}r2": r2,
             f"{prefix}direction_accuracy": direction,
         }
+
+def run_training_pipeline(symbol: str, model_name: str = "auto") -> dict:
+    """Wrapper to trigger training from other modules."""
+    pipeline = TrainingPipeline()
+    return pipeline.run(stock=symbol, model_name=model_name)
