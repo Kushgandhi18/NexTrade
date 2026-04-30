@@ -21,8 +21,8 @@ jobs:
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          # 1. Decode the base64 secret into the .pem file
-          echo "$SSH_KEY_B64" | base64 -d > deploy_key.pem
+          # 1. Clean and Decode the base64 secret
+          echo "$SSH_KEY_B64" | tr -d '[:space:]' | base64 -d > deploy_key.pem
           chmod 600 deploy_key.pem
           
           # 2. Run the deployment commands
