@@ -15,26 +15,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH
+      - name: Deploy via SSH (Base64)
         env:
-          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_KEY_B64: ${{ secrets.EC2_SSH_KEY_B64 }}
           SSH_HOST: ${{ secrets.EC2_HOST }}
           SSH_USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          # 1. Save the key exactly as it is in the secret
-          cat << 'EOF' > deploy_key.pem
-          ${{ secrets.EC2_SSH_KEY }}
-          EOF
-          
-          # Add a final newline just in case it's missing
-          sed -i '$a\' deploy_key.pem
+          # 1. Decode the base64 secret into the .pem file
+          echo "$SSH_KEY_B64" | base64 -d > deploy_key.pem
           chmod 600 deploy_key.pem
           
           # 2. Run the deployment commands
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
             cd ~/NexTrade
             git pull origin main
-            # Using the new 'docker compose' (no hyphen) since it worked manually
             docker compose up -d --build backend
             docker system prune -f
           EOF
