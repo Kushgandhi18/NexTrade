@@ -15,15 +15,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+      - name: Deploy via SSH
+        env:
+          SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          SSH_HOST: ${{ secrets.EC2_HOST }}
+          SSH_USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          # 1. Create the .pem file from the secret
+          echo "$SSH_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          
+          # 2. Run the deployment commands directly
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST << 'EOF'
             cd ~/NexTrade
             git pull origin main
-            docker-compose build --no-cache backend
-            docker-compose up -d backend
+            # Using the new 'docker compose' (no hyphen) since it worked manually
+            docker compose up -d --build backend
             docker system prune -f
+          EOF
