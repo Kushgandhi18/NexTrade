@@ -5,28 +5,28 @@ on:
     branches: [ main ]
     paths:
       - 'backend/**'
-      - 'docker-compose.yml'
       - '.github/workflows/deploy_backend.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
-      - name: Setup SSH
+      - name: Setup SSH Key
         uses: shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.EC2_SSH_KEY }}
-          known_hosts: |
-            github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj3QGmbjvB8efL1nZ7/ZkP92o2DPQbVe2ly8tsrFOMUvzjX4MyQ6sl7AT8w8Jlouk901578MRQeu2lBNGWzvQ+YcMGagkxQeXFmpO00Qs5/Nw3K5+FvjlwGWC5N5sK2RYwFMt6VHXDvyWhw2QwqZHVMLXRGUREVVc34RZ5w4nN3GDt57wdzUsQXRXyVf0JBkZHpF0JV/DXVqZt+Wp/qXQKZyuvapwjYjlS9KWkCmt37EQsZ7JwFWO84qmZI2g7eIJHWy5GwVvsapKZ7XwXXV7p9WEsKZXWJvRs5YvGtnUtPNyYPrzqP8s58LFPQYqTlyEqQAh8b+T0/c0RMQ==
-          config: |
-            Host ec2
-              HostName ${{ secrets.EC2_HOST }}
-              User ${{ secrets.EC2_USERNAME }}
-              IdentityFile ~/.ssh/id_rsa
-              StrictHostKeyChecking accept-new
+          known_hosts: ${{ secrets.EC2_HOST }}
+          if_key_exists: replace
+
+      - name: Create SSH Config
+        run: |
+          mkdir -p ~/.ssh
+          echo "Host ec2" >> ~/.ssh/config
+          echo "  HostName ${{ secrets.EC2_HOST }}" >> ~/.ssh/config
+          echo "  User ${{ secrets.EC2_USERNAME }}" >> ~/.ssh/config
+          echo "  StrictHostKeyChecking no" >> ~/.ssh/config
 
       - name: Deploy Backend
         run: |
@@ -35,37 +35,17 @@ jobs:
             git pull origin main
             docker compose up -d --build backend
             docker system prune -f
-            echo "✓ Backend deployed successfully!"
             
-            # Run the database patch for new columns
-            echo "Running DB patch..."
+            # Run the database patch safely
+            echo "Running DB migration..."
             docker exec nextrade-backend-1 python -c "
 from sqlalchemy import text
 from backend.db.postgres import engine
 with engine.connect() as conn:
     conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS revenue FLOAT;'))
     conn.execute(text('ALTER TABLE stock_profiles ADD COLUMN IF NOT EXISTS net_income FLOAT;'))
-    
-    # Create the new financials table
-    conn.execute(text('''
-        CREATE TABLE IF NOT EXISTS stock_financials (
-            id SERIAL PRIMARY KEY,
-            symbol VARCHAR(10) NOT NULL,
-            period_label VARCHAR(20) NOT NULL,
-            date TIMESTAMP NOT NULL,
-            revenue FLOAT,
-            net_income FLOAT,
-            is_quarterly BOOLEAN DEFAULT TRUE
-        );
-    '''))
+    conn.execute(text('CREATE TABLE IF NOT EXISTS stock_financials (id SERIAL PRIMARY KEY, symbol VARCHAR(10), period_label VARCHAR(20), date TIMESTAMP, revenue FLOAT, net_income FLOAT, is_quarterly BOOLEAN DEFAULT TRUE);'))
     conn.execute(text('CREATE INDEX IF NOT EXISTS idx_stock_financials_symbol ON stock_financials(symbol);'))
-    
     conn.commit()
-print('✓ Database patched!')
-            "
-            
-            docker ps | grep backend
+print('✓ Database patched!')"
           EOF
-
-      - name: Deployment Success ✅
-        run: echo "Backend deployed to ${{ secrets.EC2_HOST }} at $(date)"
