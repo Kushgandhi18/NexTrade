@@ -24,6 +24,7 @@ from backend.db.postgres import (
     StockProfile,
     get_db,
 )
+from backend.services.sync_service import full_stock_sync
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/data", tags=["Data IO"])
@@ -1109,9 +1110,7 @@ def _full_stock_sync(symbol: str) -> None:
     """Entry point for BackgroundTasks to refresh a specific stock."""
     db = SessionLocal()
     try:
-        stock = db.query(StockProfile).filter(StockProfile.symbol == symbol).first()
-        if stock:
-            _refresh_one_stock(db, stock)
+        full_stock_sync(db, symbol)
     finally:
         db.close()
 

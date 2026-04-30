@@ -4171,7 +4171,17 @@
         return;
       }
 
-      ADMIN_SEARCH_RESULTS = result;
+      // Deduplicate results by symbol to avoid "double printing"
+      const uniqueResults = [];
+      const seen = new Set();
+      for (const item of result) {
+        if (!seen.has(item.symbol)) {
+          seen.add(item.symbol);
+          uniqueResults.push(item);
+        }
+      }
+
+      ADMIN_SEARCH_RESULTS = uniqueResults;
       renderAdminSearchResults();
       if (!result.length) showToast('No Yahoo Finance matches found for that search.', 'warn');
     }
@@ -5357,6 +5367,13 @@
           btn.textContent = originalText;
           btn.disabled = false;
           btn.classList.remove('executed');
+          // Reset fields for next time
+          const qtyField = document.getElementById('trade-qty');
+          if (qtyField) qtyField.value = 1;
+          const priceField = document.getElementById('trade-target-price');
+          if (priceField) priceField.value = currentStock.price;
+          updateTradeTotal();
+          
           navigate('portfolio');
         }, 900);
       } else {

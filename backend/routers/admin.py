@@ -7,17 +7,19 @@ from typing import Any
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from backend.db.postgres import (
     AdminSession,
     AdminUser,
+    SessionLocal,
     StockProfile,
     _hash_admin_password,
     get_db,
 )
+from backend.services.sync_service import full_stock_sync
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 SESSION_TTL_HOURS = max(1, int(os.environ.get("ADMIN_SESSION_HOURS", "12")))
@@ -37,6 +39,12 @@ def _safe_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
+def _bg_sync_task(symbol: str):
+    db = SessionLocal()
+    try:
+        full_stock_sync(db, symbol)
+    finally:
+        db.close()
 
 
 def _safe_int(value: Any) -> int | None:
@@ -526,6 +534,7 @@ def fetch_stock_from_yahoo(
 @router.post("/stocks")
 def create_stock(
     payload: StockPayload,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: dict[str, Any] = Depends(require_admin),
 ):
@@ -539,6 +548,10 @@ def create_stock(
     db.add(stock)
     db.commit()
     db.refresh(stock)
+    
+    # Trigger deep sync immediately in background
+    background_tasks.add_task(_bg_sync_task, stock.symbol)
+    
     return _serialize_admin_stock(stock)
 
 
@@ -546,6 +559,7 @@ def create_stock(
 def update_stock(
     symbol: str,
     payload: StockUpdatePayload,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: dict[str, Any] = Depends(require_admin),
 ):
@@ -557,12 +571,17 @@ def update_stock(
     _apply_payload(stock, payload)
     db.commit()
     db.refresh(stock)
+    
+    # Trigger deep sync immediately in background
+    background_tasks.add_task(_bg_sync_task, stock.symbol)
+    
     return _serialize_admin_stock(stock)
 
 
 @router.post("/stocks/{symbol}/refresh")
 def refresh_stock_from_yahoo(
     symbol: str,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: dict[str, Any] = Depends(require_admin),
 ):
@@ -572,8 +591,13 @@ def refresh_stock_from_yahoo(
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
 
+    # This handles the metadata and basic snapshot
     yahoo_payload = StockPayload(**_build_yahoo_payload(normalized_symbol, bool(stock.is_active)))
     _apply_payload(stock, yahoo_payload)
     db.commit()
+    
+    # Trigger deep sync (History, News) immediately in background
+    background_tasks.add_task(_bg_sync_task, normalized_symbol)
+    
     db.refresh(stock)
     return _serialize_admin_stock(stock)
