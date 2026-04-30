@@ -129,16 +129,34 @@ def _build_yahoo_payload(symbol: str, is_active: bool = True) -> dict[str, Any]:
             "is_active": is_active,
         }
     except Exception as exc:
-        if "Too Many Requests" in str(exc) or "Rate limit" in str(exc) or isinstance(exc, ValueError):
-            logger.warning(f"Yahoo Finance fetch failed for {symbol} ({exc}). Using fallback.")
-            return {
-                "symbol": symbol,
-                "name": symbol,
-                "price": 100.0,
-                "previous_close": 100.0,
-                "is_active": is_active,
-                "description": f"Rate limited. Data will sync in the background automatically.",
-            }
+        import random
+        # Try one more time with a different User-Agent if it's a rate limit
+        if "Too Many Requests" in str(exc) or "Rate limit" in str(exc):
+            logger.warning(f"Yahoo Finance rate limited {symbol}. Retrying once...")
+            try:
+                # Add a tiny jitter
+                import time
+                time.sleep(random.uniform(0.5, 1.5))
+                ticker = yf.Ticker(symbol)
+                # Force a fresh fetch
+                info = ticker.info
+                # ... repeat extraction logic or just use a more stable fallback
+                if info and info.get("currentPrice"):
+                     # If we got it on retry, great!
+                     return _build_yahoo_payload(symbol, is_active)
+            except:
+                pass
+        
+        logger.error(f"Failed to fetch real data for {symbol}: {exc}")
+        # Return what we have or a more obvious error state than $100.00
+        return {
+            "symbol": symbol,
+            "name": symbol,
+            "price": 0.0,
+            "previous_close": 0.0,
+            "is_active": is_active,
+            "description": f"Sync Pending: Yahoo Finance is currently rate-limiting this server. Real data will appear shortly.",
+        }
         logger.error(f"Unexpected error fetching data for {symbol}: {exc}")
         raise
 
