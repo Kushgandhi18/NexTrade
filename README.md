@@ -1,4 +1,4 @@
-# StockIQ — AI Stock Prediction System
+# NexTrade — AI Stock Prediction System
 
 > End-to-end ML system for stock price prediction using LSTM, GRU, Transformer, ARIMA-SVM, and Ensemble models.
 
