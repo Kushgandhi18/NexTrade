@@ -1,9 +1,23 @@
-# Environment Variables (Sensitive)
+# Environment Variables (Sensitive - DO NOT COMMIT)
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*.local
+
+# Sensitive Documentation (Internal only)
+PROFESSOR_PRESENTATION.md
+
+# AWS/Cloud Credentials
+*.pem
+*.pem.enc
+*.key
+*.p12
+*.pfx
+aws-credentials.txt
+credentials.json
+deploy_key.pem.enc
 
 # Python
 __pycache__/
